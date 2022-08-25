@@ -112,7 +112,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(SR_Model.parameters(),
                                  lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
     mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
-    # 具体的
+    # 具体的模型路径需要再确定
     model_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     SR_Model.load_state_dict(model_checkpoint)
 
