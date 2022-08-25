@@ -4,7 +4,7 @@
 @Time: “2022/8/25 9:48”
 
 用于训练 中继 -> 信宿 的模型
-
+需要首先加载 从 信源 --> 中继 的模型
 """
 import os
 import argparse
@@ -104,17 +104,18 @@ if __name__ == '__main__':
     end_idx = token_to_idx["<END>"]
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
-    """ define Q_optimizer and loss function """
-    deepTest = DeepTest(args.num_layers, num_vocab, num_vocab,
+    SR_Model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     mi_net = Mine().to(device)
     criterion = nn.CrossEntropyLoss(reduction = 'none')
-    optimizer = torch.optim.Adam(deepTest.parameters(),
+    optimizer = torch.optim.Adam(SR_Model.parameters(),
                                  lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
-    mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)#改小了学习率
-    #初始化与否
-    initNetParams(deepTest)
+    mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
+    # 具体的模型路径 可能有误
+    model_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
+    SR_Model.load_state_dict(model_checkpoint)
+
     epoch_record_loss = []
     total_record_loss = []
     total_record_cos = []
@@ -122,7 +123,7 @@ if __name__ == '__main__':
     for epoch in range(args.epochs):
         start = time.time()
         std_acc = 10
-        total_loss, epoch_record_loss, total_cos, MI_info = train(epoch, args, deepTest, mi_net)
+        total_loss, epoch_record_loss, total_cos, MI_info = train(epoch, args, SR_Model, mi_net)
         #without MI
         # total_loss, epoch_record_loss, total_cos, _ = train(epoch, args, deepTest)
         total_record_loss.append(total_loss)
@@ -136,7 +137,7 @@ if __name__ == '__main__':
                 os.makedirs(args.checkpoint_path)
             if epoch % 10 == 0:
                 torch.save({
-                    'model': deepTest.state_dict(),
+                    'model': SR_Model.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
                 }, args.checkpoint_path + '/0727DeepTest_net_checkpoint.pth')
