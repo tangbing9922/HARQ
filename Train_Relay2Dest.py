@@ -5,8 +5,6 @@
 
 用于训练 中继 -> 信宿 的模型
 
-提交改变
-现在改变
 """
 import os
 import argparse
