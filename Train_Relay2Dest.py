@@ -111,6 +111,7 @@ if __name__ == '__main__':
     end_idx = token_to_idx["<END>"]
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
+    # 加载SR_model
     SR_Model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
@@ -120,8 +121,14 @@ if __name__ == '__main__':
                                  lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
     mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
     # 具体的模型路径需要再确定
-    model_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
-    SR_Model.load_state_dict(model_checkpoint)
+    SR_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
+    SR_Model.load_state_dict(SR_checkpoint)
+    #加载RD_model
+    RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+                        args.dff, 0.1).to(device)
+    RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
+    RD_model.load_state_dict(RD_checkpoint)
+
 
     epoch_record_loss = []
     total_record_loss = []
