@@ -236,8 +236,7 @@ class Channel_With_PathLoss():
         d_ref = 100
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = Tx_sig * PL
-        std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
-        # Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
+        std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
         Tx_sig = Tx_sig + (torch.randn_like(Tx_sig) * std_no).to(self.device)
         Tx_sig = Tx_sig.view(shape).to(self.device)
         return Tx_sig
