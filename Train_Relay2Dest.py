@@ -38,7 +38,7 @@ parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
-parser.add_argument('--num_heads', default=8, type=int)
+parser.add_argument('--num_heads', default=8, type=int) #考虑不同的 head数 和 layer数
 parser.add_argument('--batch_size', default=512, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
@@ -128,6 +128,7 @@ if __name__ == '__main__':
                         args.dff, 0.1).to(device)
     RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint)
+
 
 
     epoch_record_loss = []
