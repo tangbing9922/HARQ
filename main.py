@@ -88,7 +88,7 @@ def train(epoch, args, net, mi_net=None):
 
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
-            mi = train_mi(net, mi_net, noise_std[0], pad_idx, mi_opt, args.channel, )
+            mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
             loss, los_cos = All_train_step(net, sents, sents, noise_std[0], pad_idx, optimizer, criterion, args.channel, start_idx,
                                            sentence_model, StoT)
             total += loss

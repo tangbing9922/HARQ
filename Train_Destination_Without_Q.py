@@ -37,7 +37,7 @@ parser.add_argument('--batch_size', default=512, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
 
 def setup_seed(seed):
