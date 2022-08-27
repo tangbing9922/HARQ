@@ -123,11 +123,13 @@ if __name__ == '__main__':
     # 具体的模型路径需要再确定
     SR_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     SR_Model.load_state_dict(SR_checkpoint)
+
     #加载RD_model
     RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint)
+    
 
 
 
