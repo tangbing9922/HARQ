@@ -4,6 +4,7 @@
 @Time: “2022/8/27 13:23”
 
 用于测试 信源S -> 中继R -> 信宿D 的模型
+在测试集上做测试, 单句测试还得重新写.
 需要首先加载 从 信源S --> 中继R 的模型
 值得一提的是，不能 加载 训好的 S --> R 的模型 来训练 R --> D的模型
 因为S-->R模型加载之后不应该采用训练集数据作为输入
@@ -52,30 +53,6 @@ def setup_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
-
-def validate(epoch, args, net):
-    test_eur = EurDataset('test')
-    test_iterator = DataLoader(test_eur, batch_size=args.batch_size, num_workers=0,
-                                pin_memory=True, collate_fn=collate_data)
-    net.eval()
-    pbar = tqdm(test_iterator)
-    total = 0
-    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
-    noise_std_18 = SNR_to_noise(18)
-    with torch.no_grad():
-        for sents in pbar:
-            sents = sents.to(device)
-            loss = val_step(net, sents, sents, noise_std[0], pad_idx,
-                            criterion, args.channel, start_idx)
-
-            total += loss
-            pbar.set_description(
-                'Epoch: {}; Type: VAL; Loss: {:.5f}'.format(
-                    epoch + 1, loss
-                )
-            )
-
-    return total/len(test_iterator)
 
 def train(epoch, args, net1, mi_net=None):
     train_eur= EurDataset('train')
@@ -140,11 +117,13 @@ if __name__ == '__main__':
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     mi_net = Mine().to(device)
-    criterion = nn.CrossEntropyLoss(reduction = 'none')
-    optimizer = torch.optim.Adam(SR_Model.parameters(),
-                                 lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
-    mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
-    # 具体的模型路径需要再确定
+    mi_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727mi_net_checkpoint.pth')
+
+    # criterion = nn.CrossEntropyLoss(reduction = 'none')
+    # # optimizer = torch.optim.Adam(SR_Model.parameters(),
+    # #                              lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
+    # # mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
+    # # 具体的模型路径需要再确定
     SR_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     SR_Model.load_state_dict(SR_checkpoint)
 
@@ -157,39 +136,49 @@ if __name__ == '__main__':
     SR_Model.eval()
     RD_model.eval()
 
+    test_data = EurDataset("test")
+    test_itreator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
+                               pin_memory=True, collate_fn=collate_data)
 
+    SNR = [0, 3, 6, 9, 12, 15, 18]
 
-
-    epoch_record_loss = []
-    total_record_loss = []
-    total_record_cos = []
-    total_MI = []
-    for epoch in range(args.epochs):
-        start = time.time()
-        std_acc = 10
-        total_loss, epoch_record_loss, total_cos, MI_info = train(epoch, args, SR_Model, mi_net)
-        #without MI
-        # total_loss, epoch_record_loss, total_cos, _ = train(epoch, args, deepTest)
-        total_record_loss.append(total_loss)
-        total_record_cos.append(total_cos)
-        total_MI.append(MI_info)
-        print('avg_total_loss in 1 epoch:',total_loss)
-        print('cos_loss in 1 epoch:',total_cos)
-        print('MI_info in 1 epoch:', MI_info)
-        if total_loss < std_acc:
-            if not os.path.exists(args.checkpoint_path):
-                os.makedirs(args.checkpoint_path)
-            if epoch % 10 == 0:
-                torch.save({
-                    'model': SR_Model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'epoch': epoch,
-                }, args.checkpoint_path + '/0727DeepTest_net_checkpoint.pth')
-
-                torch.save({
-                    'model': mi_net.state_dict(),
-                    'optimizer': mi_opt.state_dict(),
-                    'epoch': epoch,
-                }, args.checkpoint_path + '/0727mi_net_checkpoint.pth')
-
-            std_acc = total_loss
+    with torch.no_grad():
+        for epoch in range(args.epochs):
+            output_sentences = []
+            target_sentences = []
+            semantic_score = []
+            for snr in tqdm(SNR):
+                noise_std = SNR_to_noise(snr)
+                eachSNR_avg_cos = 0
+                for sentence in test_iterator:
+                    out_result_string = []
+                    tgt_result_string = []
+                    target_sentence = []
+                    output_sentence = []
+                    avg_cos = 0
+                    a = sentence.size(0)  # len of each sentence batch
+                    sentence = sentence.to(device)
+                    target = sentence
+                    out = greedy_decode(SR_Model, sentence, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
+                    out_sentence = out.cpu().numpy().tolist()
+                    # 解码如何把128个句子分别解码之后再添加到string
+                    for n in range(len(out_sentence)):
+                        s = StoT.sequence_to_text(out_sentence[n])
+                        out_result_string.append(s)
+                    # 直接用out_result_string
+                    output_sentence.append(out_result_string)
+                    target_sent = target.cpu().numpy().tolist()
+                    tgt_result_string = list(map(StoT.sequence_to_text, target_sent))
+                    target_sentence.append(tgt_result_string)
+                    # embeddings_output = sentence_model.encode(output_sentence, convert_to_tensor=True)
+                    # embeddings_target = sentence_model.encode(target_sentence, convert_to_tensor=True)
+                    # cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output)
+                    for i in range(len(target_sentence)):
+                        avg_cos += cos_sim[i][i]
+                    avg_cos = avg_cos / len(target_sentence)
+                    eachSNR_avg_cos += avg_cos
+                eachSNR_avg_cos = eachSNR_avg_cos / len(test_iterator)
+                eachSNR_avg_cos_float = eachSNR_avg_cos.cpu().numpy()
+                semantic_score.append(eachSNR_avg_cos_float)
+            finnal_score.append(semantic_score)
+        print("sentence similarity score:", np.mean(finnal_score, axis=0))
