@@ -266,8 +266,7 @@ class DeepTest(nn.Module):
                                d_model, num_heads, dff, dropout)
 
         self.predict = nn.Linear(d_model, trg_vocab_size)
-    #初始代码未定义forward()方法， 但经过测试发现如果不显示定义forward方法，会默认forward流向按照init中定义模块顺序传？
-    #这里没定义forward方法，在train_step方法中定义,因为整体模型要加channel
+
 
 class Policy(nn.Module):#策略网络
     "Implement the PE function."
