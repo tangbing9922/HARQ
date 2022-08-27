@@ -2,7 +2,7 @@
 """
 @Author: Bing Tang
 @Time: “2022/7/25 9:05”
-用于语义模块 + 量化 + 路损模型的 测试
+用于语义模块 + 量化 + 路损模型的 单句测试
 """
 import torch
 from Model import DeepTest, DENSE
