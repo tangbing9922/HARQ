@@ -50,16 +50,11 @@ if __name__ == '__main__':
     # args.d_model = 256
     SNR = [0, 3, 6, 9, 12, 15, 18]
     args.checkpoint_path = '..//model_channel_COS_MI/checkpoints/deepTest3_128_32_ALLSNR_0.3COS_2022406/checkpoint_200.pth'
-    # args.checkpoint_path = '..//model_without_cos/checkpoints/deepTest3_128_32_withoutMI_2022109/checkpoint_200.pth'
-    # args.checkpoint_path = 'E:/Desktop/tb/coding/code/DeepSC-master/checkpoints/deepSC-allSNR_AWGN_3layers_128d_withMI323/checkpoint_200.pth'
-    # args.checkpoint_path = 'E:/Desktop/tb/coding/code/modelTest/checkpoints/deepTest_32_1225/checkpoint_96.pth'
-    # args.vocab_file = 'checkpoints/deepTest_32_1224/checkpoint_82.pth'#都只训练100个epoch，效果明显好过不加cos
     model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     sentence_model = SentenceTransformer(
         'models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
-    # model.load_state_dict(torch.load("./checkpoints/deepTest_32_1222/checkpoint_50.pth"))
     model.load_state_dict(torch.load(args.checkpoint_path))
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
     model.eval()
@@ -84,7 +79,7 @@ if __name__ == '__main__':
                     a = sentence.size(0)#len of each sentence batch
                     sentence = sentence.to(device)
                     target = sentence
-                    out = greedy_decode(model, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel,, sentence
+                    out = greedy_decode(model, sentence, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
                     out_sentence = out.cpu().numpy().tolist()
                     #解码如何把128个句子分别解码之后再添加到string
                     for n in range(len(out_sentence)):
@@ -107,19 +102,3 @@ if __name__ == '__main__':
                 semantic_score.append(eachSNR_avg_cos_float)
             finnal_score.append(semantic_score)
         print("sentence similarity score:",np.mean(finnal_score,axis=0))
-
-
-
-        #         output_sentences.append(result_string)
-        #         target_sentences.append(target_sentence)
-        #
-        #         embeddings_output = sentence_model.encode(output_sentences, convert_to_tensor=True)
-        #         embeddings_target = sentence_model.encode(target_sentences, convert_to_tensor=True)
-        #         cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output)
-        #         total_cos = 0
-        #         for i in range(len(target_sentences)):
-        #             print("sen1:{} \t\t sen2:{} \t\t Score: {:.4f}".format(target_sentences[i], output_sentences[i],
-        #                                                                    cos_sim[i][i]))
-        #             total_cos += cos_sim[i][i]
-        #         los_cos = total_cos/len(target_sentences)
-        # print(los_cos)
