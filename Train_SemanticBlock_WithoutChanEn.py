@@ -4,7 +4,9 @@
 @Time: “2022/7/26 10:17”
 ***********************************************************************************
 不加 channel encoder decoder 单独训练semantic encoder & decoder
-为了后续 semantic ender & decoder  + quantization 主要是为了看加上量化模块能不能提升效率
+为了后续 semantic ender & decoder  + quantization 主要是为了看加上量化模块能不能提升效率(显然不能)
+
+0827注: 该文件考虑删除 没啥用感觉
 ***********************************************************************************
 """
 import os
@@ -66,7 +68,6 @@ def train(epoch, args, net1, mi_net=None):
             mi = train_mi(net1, mi_net, sents, _snr, pad_idx, mi_opt, args.channel)
             loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT, mi_net)
-            # MI 和 semantic block 一块训练
             total += loss
             total_MI += mi
             loss_record.append(loss)
