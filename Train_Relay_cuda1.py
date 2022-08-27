@@ -2,11 +2,10 @@
 """
 @Author: Bing Tang
 @Time: “2022/7/24 15:41”
+0827注: 考虑了量化Q 模块的训练文件
 """
 # -*- coding: utf-8 -*-
-"""
-2021.12.27
-"""
+
 import os
 import argparse
 import time
