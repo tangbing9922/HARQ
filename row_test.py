@@ -68,7 +68,7 @@ if __name__ == '__main__':
             results.append(tokens)
             target = torch.tensor(results)
             target = target.to(device)
-            out = greedy_decode(model, SNR0, args.MAX_LENGTH, pad_idx, start_idx, args.channel,, target
+            out = greedy_decode(model, target, SNR0, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
             # print(out)
             out_sentences = out.cpu().numpy().tolist()
             # print(out_sentences)
