@@ -429,7 +429,7 @@ def semantic_block_train_step(model, src, trg, snr, pad, opt, criterion, channel
     elif channel == 'AWGN_Direct':
         Rx_sig = channels.AWGN_Direct(Tx_sig, snr)
     else:
-        raise ValueError("Please choose from AWGN, Rayleigh")
+        raise ValueError("Please choose from Relay, Direct")
 
     channel_dec_output = model.channel_decoder(Rx_sig)
     dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
