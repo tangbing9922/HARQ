@@ -22,7 +22,7 @@ import torch
 import random
 import torch.nn as nn
 import numpy as np
-from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE
+from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, greedy_decode
 from dataset import EurDataset, collate_data
 from Model import DeepTest
 from models.mutual_info import Mine
@@ -118,35 +118,30 @@ if __name__ == '__main__':
                         args.dff, 0.1).to(device)
     mi_net = Mine().to(device)
     mi_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727mi_net_checkpoint.pth')
-
-    # criterion = nn.CrossEntropyLoss(reduction = 'none')
-    # # optimizer = torch.optim.Adam(SR_Model.parameters(),
-    # #                              lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
-    # # mi_opt = torch.optim.Adam(mi_net.parameters(), lr=2e-5)
+    mi_net.load_state_dict(mi_checkpoint['model'])
     # # 具体的模型路径需要再确定
     SR_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
-    SR_Model.load_state_dict(SR_checkpoint)
+    SR_Model.load_state_dict(SR_checkpoint['model'])
 
     #加载RD_model
     RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
-    RD_model.load_state_dict(RD_checkpoint)
+    RD_model.load_state_dict(RD_checkpoint['model'])
 
     SR_Model.eval()
     RD_model.eval()
 
     test_data = EurDataset("test")
-    test_itreator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
+    test_iterator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
                                pin_memory=True, collate_fn=collate_data)
-
-    SNR = [0, 3, 6, 9, 12, 15, 18]
 
     with torch.no_grad():
         for epoch in range(args.epochs):
             output_sentences = []
             target_sentences = []
             semantic_score = []
+            SNR = torch.randint(4, 10, (1,))
             for snr in tqdm(SNR):
                 noise_std = SNR_to_noise(snr)
                 eachSNR_avg_cos = 0
