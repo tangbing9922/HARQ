@@ -27,7 +27,6 @@ parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
-###########################################################
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 
@@ -44,7 +43,7 @@ if __name__ == '__main__':
     model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                      args.dff, 0.1).to(device)
-    SemanticBlock_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')  # Desti
+    SemanticBlock_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')  # 信宿
     SemanticBlock_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')  # Relay
     model.load_state_dict(SemanticBlock_checkpoint['model'])
     mi_net = Mine().to(device)

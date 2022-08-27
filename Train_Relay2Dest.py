@@ -53,6 +53,30 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
+def validate(epoch, args, net):
+    test_eur = EurDataset('test')
+    test_iterator = DataLoader(test_eur, batch_size=args.batch_size, num_workers=0,
+                                pin_memory=True, collate_fn=collate_data)
+    net.eval()
+    pbar = tqdm(test_iterator)
+    total = 0
+    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+    noise_std_18 = SNR_to_noise(18)
+    with torch.no_grad():
+        for sents in pbar:
+            sents = sents.to(device)
+            loss = val_step(net, sents, sents, noise_std[0], pad_idx,
+                            criterion, args.channel, start_idx)
+
+            total += loss
+            pbar.set_description(
+                'Epoch: {}; Type: VAL; Loss: {:.5f}'.format(
+                    epoch + 1, loss
+                )
+            )
+
+    return total/len(test_iterator)
+
 def train(epoch, args, net1, mi_net=None):
     train_eur= EurDataset('train')
     train_iterator = DataLoader(train_eur, batch_size=args.batch_size, num_workers=0,
@@ -129,7 +153,10 @@ if __name__ == '__main__':
                         args.dff, 0.1).to(device)
     RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint)
-    
+
+    SR_Model.eval()
+    RD_model.eval()
+
 
 
 
