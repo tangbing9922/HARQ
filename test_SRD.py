@@ -22,7 +22,7 @@ import torch
 import random
 import torch.nn as nn
 import numpy as np
-from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, greedy_decode
+from utils import SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, greedy_decode
 from dataset import EurDataset, collate_data
 from Model import DeepTest
 from models.mutual_info import Mine
@@ -33,33 +33,35 @@ from sentence_transformers import SentenceTransformer, util
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
 parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--channel', default='AWGN_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
-parser.add_argument('--num_heads', default=8, type=int) #考虑不同的 head数 和 layer数
+parser.add_argument('--num_heads', default=8, type=int)  # 考虑不同的 head数 和 layer数
 parser.add_argument('--batch_size', default=512, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
+sentence_model = SentenceTransformer(
+    'models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
+
 
 def setup_seed(seed):
-    torch.manual_seed(seed)#set the seed for generating random numbers设置生成随机数的种子
-    torch.cuda.manual_seed_all(seed)# if you are using multi-GPU.
+    torch.manual_seed(seed)  # set the seed for generating random numbers设置生成随机数的种子
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
     np.random.seed(seed)
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
+
 def train(epoch, args, net1, mi_net=None):
-    train_eur= EurDataset('train')
+    train_eur = EurDataset('train')
     train_iterator = DataLoader(train_eur, batch_size=args.batch_size, num_workers=0,
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
-    _snr = torch.randint(4, 10,(1,))
+    _snr = torch.randint(4, 10, (1,))
 
     total = 0
     loss_record = []
@@ -71,7 +73,8 @@ def train(epoch, args, net1, mi_net=None):
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
             mi = train_mi(net1, mi_net, sents, _snr, pad_idx, mi_opt, args.channel)
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion,
+                                                      args.channel, start_idx,
                                                       sentence_model, StoT, mi_net)
             # MI 和 semantic block 一块训练
             total += loss
@@ -85,7 +88,8 @@ def train(epoch, args, net1, mi_net=None):
                     epoch + 1, loss, mi, los_cos)
             )
         else:
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion,
+                                                      args.channel, start_idx,
                                                       sentence_model, StoT)
             total += loss
             los_cos = los_cos.cpu().detach().numpy()
@@ -94,10 +98,10 @@ def train(epoch, args, net1, mi_net=None):
             loss_record.append(loss)
             pbar.set_description(
                 'Epoch: {};  Type: Train; Loss: {:.3f}; los_cos: {:.3f}'.format(
-                    epoch + 1, loss,los_cos
+                    epoch + 1, loss, los_cos
                 )
             )
-    return total / len(train_iterator), loss_record, total_cos / len(train_iterator), total_MI/ len(train_iterator)
+    return total / len(train_iterator), loss_record, total_cos / len(train_iterator), total_MI / len(train_iterator)
 
 
 if __name__ == '__main__':
@@ -123,8 +127,9 @@ if __name__ == '__main__':
     SR_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     SR_Model.load_state_dict(SR_checkpoint['model'])
 
-    #加载RD_model
-    RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+    # 加载RD_model
+    RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model,
+                        args.num_heads,
                         args.dff, 0.1).to(device)
     RD_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint['model'])
@@ -136,14 +141,15 @@ if __name__ == '__main__':
     test_iterator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
                                pin_memory=True, collate_fn=collate_data)
 
+    SNR = [4, 5, 6, 7, 8, 9]
     with torch.no_grad():
         for epoch in range(args.epochs):
             output_sentences = []
             target_sentences = []
             semantic_score = []
-            SNR = torch.randint(4, 10, (1,))
             for snr in tqdm(SNR):
                 noise_std = SNR_to_noise(snr)
+                noise_std = torch.tensor(noise_std) #解决163行问题
                 eachSNR_avg_cos = 0
                 for sentence in test_iterator:
                     out_result_string = []
@@ -154,7 +160,8 @@ if __name__ == '__main__':
                     a = sentence.size(0)  # len of each sentence batch
                     sentence = sentence.to(device)
                     target = sentence
-                    out = greedy_decode(SR_Model, sentence, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
+                    out = greedy_decode(SR_Model, sentence, noise_std, args.MAX_LENGTH, pad_idx, start_idx,
+                                        args.channel)
                     out_sentence = out.cpu().numpy().tolist()
                     # 解码如何把128个句子分别解码之后再添加到string
                     for n in range(len(out_sentence)):
