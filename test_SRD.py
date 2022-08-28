@@ -136,13 +136,15 @@ if __name__ == '__main__':
     test_iterator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
                                pin_memory=True, collate_fn=collate_data)
 
+    SNR = [4,5,6,7,8,9]
+
     with torch.no_grad():
         for epoch in range(args.epochs):
             output_sentences = []
             target_sentences = []
             semantic_score = []
-            SNR = torch.randint(4, 10, (1,))
             for snr in tqdm(SNR):
+                snr = torch.int32(snr)
                 noise_std = SNR_to_noise(snr)
                 eachSNR_avg_cos = 0
                 for sentence in test_iterator:
