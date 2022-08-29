@@ -1,11 +1,6 @@
 '''
 2021.12.21
 '''
-'''
-将这个任务做成两个阶段的任务 
-现在计算 句子丢进训练好的模型做相似度计算，以相似度计算作为损失
-相似度 测试
-'''
 import torch
 from Model import DeepTest
 import torch.nn as nn

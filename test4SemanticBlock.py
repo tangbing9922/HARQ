@@ -3,6 +3,8 @@
 @Author: Bing Tang
 @Time: “2022/7/25 15:25”
 semantic block using path loss model
+single sentence 测试 单一句子 单一SNR测试
+0829 添加 batch sentence test 在测试集上进行完整的测试
 """
 import torch
 from Model import DeepTest, DENSE
@@ -55,7 +57,7 @@ if __name__ == '__main__':
     model.eval()
     mi_net.eval()
 
-    SNR = 7
+    SNR = 4
     with torch.no_grad():
         word = []
         target_word = []

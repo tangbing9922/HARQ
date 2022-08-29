@@ -96,7 +96,7 @@ if __name__ == '__main__':
     deepTest = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    model_checkpoint = torch.load(os.path.join(args.checkpoint_path, '0726DeepTest_net_checkpoint.pth'))
+    model_checkpoint = torch.load(os.path.join(args.checkpoint_path, '0727DeepTest_net_checkpoint.pth'))
     deepTest.load_state_dict(model_checkpoint['model'])
     print('model load!')
 
