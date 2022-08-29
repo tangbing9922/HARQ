@@ -173,7 +173,15 @@ class SeqtoText:
             elif idx != self.start_idx:#修改了 不加start token
                 words.append(self.reverse_word_map.get(idx))
         words = ' '.join(words)
-        return(words) 
+        return(words)
+    #0829新增 text2idx 方法(batch_size), 不需要, greedy_decode 出来的就能用
+    # def text_to_idx(self, list_of_text):
+    #     idx_list = []
+    #     idx_list.append(self.start_idx)
+    #     for sentence in list_of_text:
+    #         for word in sentence:
+    #             idx_list.append(vocb_dictionary[word])
+
 
 
 class Channels():
