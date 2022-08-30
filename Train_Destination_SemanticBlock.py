@@ -52,7 +52,7 @@ def train(epoch, args, net1, mi_net=None):
     train_iterator = DataLoader(train_eur, batch_size=args.batch_size, num_workers=0,
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
-    _snr = torch.randint(-2, 3,(1,))
+    _snr = torch.randint(-2, 4,(1,))    # 修改
 
     total = 0
     loss_record = []
