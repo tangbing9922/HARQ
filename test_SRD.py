@@ -151,7 +151,7 @@ def batch_BLEU_test(args, SNR, StoT, SR_model, RD_model):
             Rx_word = []
 
             for snr in tqdm(SNR):
-                word = []
+                output_word = []
                 target_word = []
                 noise = SNR_to_noise(snr)
                 for sents in test_iterator:
@@ -161,12 +161,12 @@ def batch_BLEU_test(args, SNR, StoT, SR_model, RD_model):
                     RD_out = greedy_decode(RD_model, target, noise, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
                     sentences = RD_out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
-                    word = word + result_string
+                    output_word = output_word + result_string
                     target_sent = target.cpu().numpy().tolist()
-                    result_string = list(map(StoT.sequence_to_text, target_sent))
-                    target_word = target_word + result_string
-                Tx_word.append(word)
-                Rx_word.append(target_word)
+                    target_string = list(map(StoT.sequence_to_text, target_sent))
+                    target_word = target_word + target_string
+                Tx_word.append(target_word)
+                Rx_word.append(word)
             bleu_score = []
             for sent1, sent2 in zip(Tx_word, Rx_word):
                 # 1-gram
@@ -205,5 +205,6 @@ if __name__ == '__main__':
     RD_model.load_state_dict(RD_checkpoint['model'])
 
     SNR = [4,5,6,7,8,9]
-    # test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)
-    score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)
+    test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)    # sentence similarity compute
+    score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
+
