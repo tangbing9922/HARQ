@@ -139,7 +139,7 @@ def single_sentenceSim_test(args, SR_model, RD_model):  # 还没做测试,不知
 def batch_BLEU_test(args, SNR, StoT, SR_model, RD_model):
     bleu_score_1gram = BleuScore(1, 0, 0, 0)
     score = []
-    score2 = []
+    score1 = []
     SR_model.eval()
     RD_model.eval()
     test_data = EurDataset("test")
