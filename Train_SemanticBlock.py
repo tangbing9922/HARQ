@@ -123,8 +123,6 @@ if __name__ == '__main__':
         start = time.time()
         std_acc = 10
         total_loss, epoch_record_loss, total_cos, MI_info = train(epoch, args, deepTest, mi_net)
-        #without MI
-        # total_loss, epoch_record_loss, total_cos, _ = train(epoch, args, deepTest)
         total_record_loss.append(total_loss)
         total_record_cos.append(total_cos)
         total_MI.append(MI_info)
@@ -139,12 +137,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0727DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/0830DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0727mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/0830mi_net_checkpoint.pth')
 
             std_acc = total_loss

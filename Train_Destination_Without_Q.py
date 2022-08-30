@@ -2,7 +2,7 @@
 """
 @Author: Bing Tang
 @Time: “2022/7/26 21:20”
-
+S-->D 的模型训练
 Destination's semantic block, SNR : [-2 , 3] -2 -1 0 1 2 3  高SNR 4 5 6 7 8 9
 """
 import os
@@ -106,7 +106,6 @@ if __name__ == '__main__':
     end_idx = token_to_idx["<END>"]
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
-    """ define Q_optimizer and loss function """
     deepTest = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
