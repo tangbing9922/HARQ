@@ -45,17 +45,14 @@ if __name__ == '__main__':
     model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                      args.dff, 0.1).to(device)
-    SemanticBlock_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')  # 信宿
+    # SemanticBlock_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')  # 信宿
     SemanticBlock_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')  # Relay
     model.load_state_dict(SemanticBlock_checkpoint['model'])
-    mi_net = Mine().to(device)
-    mi_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727mi_net_checkpoint.pth')
-    mi_net.load_state_dict(mi_checkpoint['model'])
 
     sentences = ['the events taking place today in school are extremely interesting']
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
     model.eval()
-    mi_net.eval()
+
 
     SNR = 4
     with torch.no_grad():

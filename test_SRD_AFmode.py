@@ -45,7 +45,7 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def SRD_transmission(args, SNR, net, StoT):
+def SRD_SS_test(args, SNR, net, StoT):
     test_data = EurDataset("test")
     test_iterator = DataLoader()
     with torch.no_grad():
