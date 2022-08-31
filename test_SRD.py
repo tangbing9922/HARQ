@@ -206,5 +206,5 @@ if __name__ == '__main__':
 
     SNR = [4,5,6,7,8,9]
     test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)    # sentence similarity compute
-    score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
+    # score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
 

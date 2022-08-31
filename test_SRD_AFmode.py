@@ -64,14 +64,14 @@ def SRD_SS_test(args, SNR, model, StoT, channel):
                     src_mask = (sentence == pad_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
                     enc_output = model.encoder(sentence, src_mask)
                     Tx_sig = PowerNormalize(channel_enc_output)
-                    # S --> R channel
+                    # S --> R channel   高SNR
                     if channel == 'AWGN_Relay':
                         RelayReceive_sig = channels.AWGN_Relay(Tx_sig, snr)
                     elif channel == 'AWGN_Direct':
                         RelayReceive_sig = channels.AWGN_Direct(Tx_sig, snr)
                     else:
                         raise ValueError("Please choose from AWGN, Rayleigh")
-                    # R --> D channel
+                    # R --> D channel without Decode
                     if channel == 'AWGN_Relay':
                         Relaysend_sig = channels.AWGN_Relay(RelayReceive_sig, snr)
                     elif channel == 'AWGN_Direct':
@@ -79,6 +79,29 @@ def SRD_SS_test(args, SNR, model, StoT, channel):
                     else:
                         raise ValueError("Please choose from AWGN, Rayleigh")
                     memory = model.channel_decoder(Relaysend_sig)
+
+                    outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(sentence.data)
+                    # torch.tensor.fill_(x)用指定的值x填充张量
+                    # torch.tensor.type_as(type) 将tensor的类型转换为给定张量的类型
+                    for i in range(args.MAX_LENGTH - 1):
+                        trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
+                        look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
+                        combined_mask = torch.max(trg_mask, look_ahead_mask)
+                        combined_mask = combined_mask.to(device)
+
+                        # decode the received signal
+                        dec_output = model.decoder(outputs, memory, combined_mask, None)
+                        pred = model.predict(dec_output)
+
+                        # predict the output_sentences
+                        prob = pred[:, -1:, :]  # (batch_size, 1, vocab_size)
+
+                        # return the max-prob index
+                        _, next_word = torch.max(prob, dim=-1)
+                        outputs = torch.cat([outputs, next_word], dim=1)
+
+                        out_sentences = outputs.cpu().numpy().tolist()
+
 
 
 if __name__ == "__main__":
