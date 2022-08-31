@@ -14,7 +14,7 @@ import torch
 import random
 import torch.nn as nn
 import numpy as np
-from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, greedy_decode, BleuScore
+from utils import  SNR_to_noise, SeqtoText, DENSE, greedy_decode, BleuScore, Channel_With_PathLoss, PowerNormalize
 from dataset import EurDataset, collate_data
 from Model import DeepTest
 from models.mutual_info import Mine
@@ -45,9 +45,10 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def SRD_SS_test(args, SNR, net, StoT):
+def SRD_SS_test(args, SNR, model, StoT, channel):
     test_data = EurDataset("test")
     test_iterator = DataLoader()
+    channels = Channel_With_PathLoss()
     with torch.no_grad():
         for epoch in range(args.epochs):
             output_sentences = []
@@ -60,37 +61,26 @@ def SRD_SS_test(args, SNR, net, StoT):
                 eachSNR_avg_cos = 0
                 for sentence in test_iterator:
                     out_result_string = []
-                    tgt_result_string = []
-                    target_sentence = []
-                    output_sentence = []
-                    avg_cos = 0
-                    a = sentence.size(0)  # len of each sentence batch
-                    sentence = sentence.to(device)
-                    target = sentence
-                    out_SR = greedy_decode(SR_model, sentence, SR_noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
-                    # 考虑noise_std 并不一样
-                    out_RD = greedy_decode(RD_model, out_SR, RD_noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
-                    out_idx_list = out_RD.cpu().numpy().tolist()
-        #             for n in range(len(out_idx_list)):
-        #                 s = StoT.sequence_to_text(out_idx_list[n])
-        #                 out_result_string.append(s)
-        #             output_sentence.append(out_result_string)
-        #             target_sent = target.cpu().numpy().tolist()
-        #             tgt_result_string = list(map(StoT.sequence_to_text, target_sent))
-        #             target_sentence.append(tgt_result_string)
-        #             embeddings_output = sentence_model.encode(output_sentence, convert_to_tensor=True)
-        #             embeddings_target = sentence_model.encode(target_sentence, convert_to_tensor=True)
-        #             cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output)
-        #             for i in range(len(target_sentence)):
-        #                 avg_cos += cos_sim[i][i]
-        #             avg_cos = avg_cos / len(target_sentence)
-        #             eachSNR_avg_cos += avg_cos
-        #         eachSNR_avg_cos = eachSNR_avg_cos / len(test_iterator)
-        #         eachSNR_avg_cos_float = eachSNR_avg_cos.cpu().numpy()
-        #         semantic_score.append(eachSNR_avg_cos_float)
-        #     finnal_score.append(semantic_score)
-        # print("sentence similarity score:", np.mean(finnal_score, axis=0))
-        # return finnal_score
+                    src_mask = (sentence == pad_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
+                    enc_output = model.encoder(sentence, src_mask)
+                    Tx_sig = PowerNormalize(channel_enc_output)
+                    # S --> R channel
+                    if channel == 'AWGN_Relay':
+                        RelayReceive_sig = channels.AWGN_Relay(Tx_sig, snr)
+                    elif channel == 'AWGN_Direct':
+                        RelayReceive_sig = channels.AWGN_Direct(Tx_sig, snr)
+                    else:
+                        raise ValueError("Please choose from AWGN, Rayleigh")
+                    # R --> D channel
+                    if channel == 'AWGN_Relay':
+                        Relaysend_sig = channels.AWGN_Relay(RelayReceive_sig, snr)
+                    elif channel == 'AWGN_Direct':
+                        Relaysend_sig = channels.AWGN_Direct(RelayReceive_sig, snr)
+                    else:
+                        raise ValueError("Please choose from AWGN, Rayleigh")
+                    memory = model.channel_decoder(Relaysend_sig)
+
+
 if __name__ == "__main__":
     setup_seed(7)
     args = parser.parse_args()
