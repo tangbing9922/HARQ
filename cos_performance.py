@@ -18,8 +18,8 @@ from dataset import EurDataset, collate_data
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--vocab_file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='/checkpoints/deepTest3_128_32_ALLSNR_0.3COS_2022406/checkpoint_200.pth', type=str)
-parser.add_argument('--channel', default='AWGN', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints', type=str)
+parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
@@ -48,9 +48,8 @@ if __name__ == '__main__':
     model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    sentence_model = SentenceTransformer(
-        'models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
-    model.load_state_dict(torch.load(args.checkpoint_path))
+    sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
+    model.load_state_dict(torch.load(torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')))
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
     model.eval()
     test_eur = EurDataset('test')
