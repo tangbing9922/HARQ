@@ -322,17 +322,21 @@ def loss_function(x, trg, padding_idx, criterion):
 
 def PowerNormalize(x):
     
-    x_square = torch.mul(x, x)
+    x_square = torch.mul(x, x)  # 各点信号能量的计算(数字信号中信号的能量即各点信号幅值平方后求和)
     power = torch.mean(x_square).sqrt()
+    # torch.mean(x) 返回x所有元素的平均值, 即返回平均能量(总能量/信号长度)
+    # 这加个sqrt开根是什么意思
+    # 不加sqrt是信号的平均功率
     if power > 1:
         x = torch.div(x, power)
+        # 逐元素除以平均功率
     
     return x
 
 
 def SNR_to_noise(snr):
     snr = 10 ** (snr / 10)
-    noise_std = 1 / np.sqrt(2 * snr)
+    noise_std = 1 / np.sqrt(2 * snr)    #信号功率设定为1, power_normalize之后能这么理解吗?
 
     return noise_std
 
