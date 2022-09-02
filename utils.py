@@ -325,11 +325,10 @@ def PowerNormalize(x):
     x_square = torch.mul(x, x)  # 各点信号能量的计算(数字信号中信号的能量即各点信号幅值平方后求和)
     power = torch.mean(x_square).sqrt()
     # torch.mean(x) 返回x所有元素的平均值, 即返回平均能量(总能量/信号长度)
-    # 这加个sqrt开根是什么意思
-    # 不加sqrt是信号的平均功率
+    # 不加sqrt是信号的平均功率, 即sigpower, 也就是方差
+    # 加sqrt是因为这是产生对应的噪声标准差
     if power > 1:
         x = torch.div(x, power)
-        # 逐元素除以平均功率
     
     return x
 
