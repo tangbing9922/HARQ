@@ -99,7 +99,7 @@ def batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model):   # 0829下午�
         print("sentence similarity score:", np.mean(finnal_score, axis=0))
         return finnal_score
 
-def single_sentenceSim_test(args, SR_model, RD_model):  # 还没做测试,不知道能不能用
+def single_sentenceSim_test(args, SR_model, RD_model):  # 还没做测试, 铁不能用
     SR_model.eval()
     RD_model.eval()
     with torch.no_grad():

@@ -4,6 +4,9 @@
 @Time: “2022/7/26 21:20”
 S-->D 的模型训练
 Destination's semantic block, SNR : [-2 , 3] -2 -1 0 1 2 3  高SNR 4 5 6 7 8 9
+
+1024
+用来训练只含semantic block 的 考虑了路损的模型
 """
 import os
 import argparse
@@ -13,7 +16,7 @@ import torch
 import random
 import torch.nn as nn
 import numpy as np
-from utils import initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE
+from utils import initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, SNR_to_noise
 from dataset import EurDataset, collate_data
 from Model import DeepTest
 from models.mutual_info import Mine
@@ -25,15 +28,15 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_Destination_SemanticBlock_withoutQ', type=str)
-parser.add_argument('--channel', default='AWGN_Direct', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Relay', type=str)
+parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
-parser.add_argument('--batch_size', default=512, type=int)
+parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
 
@@ -47,12 +50,13 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def train(epoch, args, net1, mi_net=None):
+def train(epoch, args, net1, mi_net):
     train_eur= EurDataset('train')
     train_iterator = DataLoader(train_eur, batch_size=args.batch_size, num_workers=0,
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
-    _snr = torch.randint(-2, 4,(1,))    # 修改, 信道条件较差
+    # _snr = torch.randint(-2, 4,(1,))    # 修改, 信道条件较差
+    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
 
     total = 0
     loss_record = []
@@ -63,8 +67,8 @@ def train(epoch, args, net1, mi_net=None):
 
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
-            mi = train_mi(net1, mi_net, sents, _snr, pad_idx, mi_opt, args.channel)
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            mi = train_mi(net1, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std[0], pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT, mi_net)
             # MI 和 semantic block 一块训练
             total += loss
@@ -140,12 +144,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0727DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0727mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1024mi_net_checkpoint.pth')
 
             std_acc = total_loss

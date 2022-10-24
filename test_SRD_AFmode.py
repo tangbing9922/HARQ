@@ -45,9 +45,10 @@ def setup_seed(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def SRD_SS_test(args, SNR, model, StoT, channel):
+def AF_SRD_SS_test(args, SNR, model, StoT):
     test_data = EurDataset("test")
-    test_iterator = DataLoader()
+    test_iterator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
+                               pin_memory=True, collate_fn=collate_data)
     channels = Channel_With_PathLoss()
     with torch.no_grad():
         for epoch in range(args.epochs):
@@ -61,30 +62,33 @@ def SRD_SS_test(args, SNR, model, StoT, channel):
                 eachSNR_avg_cos = 0
                 for sentence in test_iterator:
                     out_result_string = []
+                    target = sentence
+                    sentence = sentence.to(device)
                     src_mask = (sentence == pad_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
                     enc_output = model.encoder(sentence, src_mask)
+                    channel_enc_output = model.channel_encoder(enc_output)
                     Tx_sig = PowerNormalize(channel_enc_output)
                     # S --> R channel   高SNR
-                    if channel == 'AWGN_Relay':
+                    if args.channel == 'AWGN_Relay':
                         RelayReceive_sig = channels.AWGN_Relay(Tx_sig, snr)
-                    elif channel == 'AWGN_Direct':
+                    elif args.channel == 'AWGN_Direct':
                         RelayReceive_sig = channels.AWGN_Direct(Tx_sig, snr)
                     else:
                         raise ValueError("Please choose from AWGN, Rayleigh")
                     # R --> D channel without Decode
-                    if channel == 'AWGN_Relay':
-                        Relaysend_sig = channels.AWGN_Relay(RelayReceive_sig, snr)
-                    elif channel == 'AWGN_Direct':
-                        Relaysend_sig = channels.AWGN_Direct(RelayReceive_sig, snr)
+                    if args.channel == 'AWGN_Relay':
+                        RelaySend_sig = channels.AWGN_Relay(RelayReceive_sig, snr)
+                    elif args.channel == 'AWGN_Direct':
+                        RelaySend_sig = channels.AWGN_Direct(RelayReceive_sig, snr)
                     else:
                         raise ValueError("Please choose from AWGN, Rayleigh")
-                    memory = model.channel_decoder(Relaysend_sig)
+                    memory = model.channel_decoder(RelaySend_sig)
 
-                    outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(sentence.data)
+                    outputs = torch.ones(src.size(0), 1).fill_(start_idx).type_as(sentence.data)
                     # torch.tensor.fill_(x)用指定的值x填充张量
                     # torch.tensor.type_as(type) 将tensor的类型转换为给定张量的类型
                     for i in range(args.MAX_LENGTH - 1):
-                        trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
+                        trg_mask = (outputs == pad_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
                         look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
                         combined_mask = torch.max(trg_mask, look_ahead_mask)
                         combined_mask = combined_mask.to(device)
@@ -101,13 +105,33 @@ def SRD_SS_test(args, SNR, model, StoT, channel):
                         outputs = torch.cat([outputs, next_word], dim=1)
 
                         out_sentences = outputs.cpu().numpy().tolist()
+                    for n in range(len(out_sentences)):
+                        s = StoT.sequence_to_text(out_sentences[n])
+                        out_result_string.append(s)
+                    output_sentences.append(out_result_string)
+                    target_sent = target.cpu().numpy().tolist()
+                    tgt_result_string = list(map(StoT.sequence_to_text, target_sent))
+                    target_sentence.append(tgt_result_string)
+                    embeddings_output = sentence_model.encode(output_sentence, convert_to_tensor=True)
+                    embeddings_target = sentence_model.encode(target_sentence, convert_to_tensor=True)
+                    cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output)
+                    for i in range(len(target_sentence)):
+                        avg_cos += cos_sim[i][i]
+                    avg_cos = avg_cos / len(target_sentence)
+                    eachSNR_avg_cos += avg_cos
+                eachSNR_avg_cos = eachSNR_avg_cos / len(test_iterator)
+                eachSNR_avg_cos_float = eachSNR_avg_cos.cpu().numpy()
+                semantic_score.append(eachSNR_avg_cos_float)
+            finnal_score.append(semantic_score)
+            print("sentence similarity score:", np.mean(finnal_score, axis=0))
+            return finnal_score
 
 
 
 if __name__ == "__main__":
     setup_seed(7)
     args = parser.parse_args()
-    vocab = json.load(open(args.vocab, "r"))
+    vocab = json.load(open(args.vocab_file, "r"))
     token_to_idx = vocab['token_to_idx']
     num_vocab = len(token_to_idx)
     pad_idx = token_to_idx["<PAD>"]
@@ -120,3 +144,5 @@ if __name__ == "__main__":
                         args.dff, 0.1).to(device)
     model_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')
     model.load_state_dict(model_checkpoint["model"])
+    SNR = [4,5,6,7,8,9]
+    AF_SRD_SS_test(args, SNR, model, StoT)

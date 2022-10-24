@@ -32,6 +32,13 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 
+def single_sentence_decode(args, model):
+    model.eval()
+
+
+def batch_sentence_test(args, model):
+    model.eval()
+
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()

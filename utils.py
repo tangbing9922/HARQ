@@ -182,6 +182,12 @@ class SeqtoText:
     #         for word in sentence:
     #             idx_list.append(vocb_dictionary[word])
 
+def SNR_to_noise(snr):
+    snr = 10 ** (snr / 10)
+    noise_std = 1 / np.sqrt(2 * snr)# np.sqrt(2 * snr)的话 进channel的n_var就不用/根号2
+
+    return noise_std
+
 
 
 class Channels():
@@ -222,18 +228,17 @@ class Channel_With_PathLoss():
     def __init__(self):
         self.device = torch.device('cuda:0')
 
-    def AWGN_Relay(self, Tx_sig, SNR, distance = 100):
+    def AWGN_Relay(self, Tx_sig, noise_std, distance = 100):
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
         path_loss_exp = -2
         d_ref = 100
         PL = (distance / d_ref) ** path_loss_exp
-        Tx_sig = (Tx_sig * PL).to(self.device)
-        std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5) # .to(self.device)
-        # Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
-        Tx_sig = Tx_sig + (torch.randn_like(Tx_sig) * std_no).to(self.device)
-        Tx_sig = Tx_sig.view(shape).to(self.device)
+        Tx_sig = (Tx_sig * PL)
+        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(device)
+        Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
     def AWGN_Direct(self, Tx_sig, SNR, distance = 120):
@@ -244,9 +249,11 @@ class Channel_With_PathLoss():
         d_ref = 100
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = Tx_sig * PL
-        std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
-        Tx_sig = Tx_sig + (torch.randn_like(Tx_sig) * std_no).to(self.device)
-        Tx_sig = Tx_sig.view(shape).to(self.device)
+        # std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
+        std_no = SNR_to_noise(SNR)
+        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        Tx_sig = Tx_sig + torch.normal(0., std_no, size=Tx_sig.shape).to(device)
+        Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
     def Rayleigh_Relay(self, Tx_sig, SNR, distance = 600):
@@ -292,12 +299,14 @@ def subsequent_mask(size):
     # 产生下三角矩阵 decoder 中的 look ahead 操作
     subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
     # np.triu 产生上三角矩阵 右上是1， 因为k=1 即主对角线全为 0，再往右上全1 ;k = 0 表示从主对角线开始右上均为1(本例)
+    # mask中 True的位置是mask的位置
     return torch.from_numpy(subsequent_mask)
 
     
 def create_masks(src, trg, padding_idx):
 
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor)
+    # pad_idx = 0 vocab中设定
     #[batch, 1, seq_len] 128 * 1 * 32
     # 是pad 的位置 置为1， 维度变换成 batch * 1 * seq_len 为了 匹配 batch * seq_len * seq_len ?
     trg_mask = (trg == padding_idx).unsqueeze(-2).type(torch.FloatTensor)
@@ -423,7 +432,7 @@ def All_train_step(model, src, trg, snr, pad, opt, Q_opt, criterion, channel, st
     Q_opt.step()
     return loss.item(), los_cos
 
-def semantic_block_train_step(model, src, trg, snr, pad, opt, criterion, channel, start_symbol, senten_model, S2T, mi_net=None):
+def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, channel, start_symbol, senten_model, S2T, mi_net=None):
     model.train()
     trg_inp = trg[:, :-1]
     trg_real = trg[:, 1:]
@@ -436,9 +445,9 @@ def semantic_block_train_step(model, src, trg, snr, pad, opt, criterion, channel
     Tx_sig = PowerNormalize(channel_enc_output)
 
     if channel == 'AWGN_Relay':
-        Rx_sig = channels.AWGN_Relay(Tx_sig, snr)
+        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
     elif channel == 'AWGN_Direct':
-        Rx_sig = channels.AWGN_Direct(Tx_sig, snr)
+        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
     else:
         raise ValueError("Please choose from Relay, Direct")
 
@@ -453,7 +462,7 @@ def semantic_block_train_step(model, src, trg, snr, pad, opt, criterion, channel
     target = src
     target_string = target.cpu().numpy().tolist()
     target_sentences = list(map(S2T.sequence_to_text, target_string))
-    out = greedy_decode(model, src, snr, MAX_len, pad, start_symbol, channel)
+    out = greedy_decode(model, src, noise_std, MAX_len, pad, start_symbol, channel)
     out_sentences = out.cpu().numpy().tolist()
     result_sentences = list(map(S2T.sequence_to_text, out_sentences))
 
@@ -509,7 +518,7 @@ def Q_net_train_step(model, src, trg, snr, pad, Q_opt, criterion, channel, Q_Net
 
     return loss.item()
 
-def train_mi(model, mi_net, src, snr, padding_idx, opt, channel):
+def train_mi(model, mi_net, src, noise_std, padding_idx, opt, channel):
     mi_net.train()
     opt.zero_grad()#
     channels = Channel_With_PathLoss()
@@ -519,11 +528,11 @@ def train_mi(model, mi_net, src, snr, padding_idx, opt, channel):
     channel_enc_output = model.channel_encoder(enc_output)  #channel_enc_output: 128 * 32 * 16
     Tx_sig = PowerNormalize(channel_enc_output) # 功率归一化
     if channel == 'AWGN_Relay':
-        Rx_sig = channels.AWGN_Relay(Tx_sig, snr)
+        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
     elif channel == 'AWGN_Direct':
-        Rx_sig = channels.AWGN_Direct(Tx_sig, snr)
+        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
     elif channel == 'Rician':
-        Rx_sig = channels.Rician(Tx_sig, snr)
+        Rx_sig = channels.Rician(Tx_sig, noise_std)
     else:
         raise ValueError("Please choose from AWGN, Rayleigh, and Rician")
     joint, marginal = sample_batch(Tx_sig, Rx_sig)
@@ -572,7 +581,7 @@ def val_step(model, Q_Net, src, trg, n_var,pad, criterion, channel, start_symbol
     
     return loss.item()
     
-def greedy_decode(model, src, snr, max_len, padding_idx, start_symbol, channel, Q_Net = None):  # greedy中也加入量化模块
+def greedy_decode(model, src, noise_std, max_len, padding_idx, start_symbol, channel, Q_Net = None):  # greedy中也加入量化模块
     """ 
     这里采用贪婪解码器，如果需要更好的性能情况下，可以使用beam search decode
     """
@@ -586,18 +595,18 @@ def greedy_decode(model, src, snr, max_len, padding_idx, start_symbol, channel, 
     if Q_Net != None:
         Tx_sig = Q_Net.Q(Tx_sig)
         if channel == 'AWGN_Relay':
-            Rx_sig = channels.AWGN_Relay(Tx_sig, snr)
+            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
         elif channel == 'AWGN_Direct':
-            Rx_sig = channels.AWGN_Direct(Tx_sig, snr)
+            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
         else:
             raise ValueError("Please choose from AWGN, Rayleigh")
         Rx_sig = sign(Rx_sig)
         Rx_sig = Q_Net.dQ(Rx_sig)
     else:
         if channel == 'AWGN_Relay':
-            Rx_sig = channels.AWGN_Relay(Tx_sig, snr)
+            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
         elif channel == 'AWGN_Direct':
-            Rx_sig = channels.AWGN_Direct(Tx_sig, snr)
+            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
         else:
             raise ValueError("Please choose from AWGN, Rayleigh")
     memory = model.channel_decoder(Rx_sig)
