@@ -53,15 +53,15 @@ if __name__ == '__main__':
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                      args.dff, 0.1).to(device)
     # SemanticBlock_checkpoint = torch.load('./checkpoints/Train_Destination_SemanticBlock_withoutQ/0727DeepTest_net_checkpoint.pth')  # 信宿
-    SemanticBlock_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')  # Relay
+    SemanticBlock_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1024DeepTest_net_checkpoint.pth')  # Relay
     model.load_state_dict(SemanticBlock_checkpoint['model'])
 
     sentences = ['the events taking place today in school are extremely interesting']
+    #the next item is the joint debate on the following reports
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
     model.eval()
-
-
-    SNR = 4
+    SNR = 6
+    noise_std = SNR_to_noise(SNR)
     with torch.no_grad():
         word = []
         target_word = []
@@ -74,11 +74,11 @@ if __name__ == '__main__':
             results.append(tokens)
             target = torch.tensor(results)
             target = target.to(device)
-            out = greedy_decode(model, target, SNR, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
+            out = greedy_decode(model, target, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
             out_sentences = out.cpu().numpy().tolist()
             result_string = list(map(StoT.sequence_to_text, out_sentences))
 
         word = word + result_string
         target_word = sentences
-        print(target_word)
-        print(word)
+        print("target sentence:",target_word)
+        print("reconstruct sentence:",word)

@@ -245,7 +245,7 @@ class Channel_With_PathLoss():
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)  # 何时考虑
-        path_loss_exp = -3
+        path_loss_exp = -2  # 路损因子调成多少合适
         d_ref = 100
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = Tx_sig * PL

@@ -158,7 +158,7 @@ def batch_BLEU_test(args, SNR, StoT, SR_model, RD_model):
                     sents = sents.to(device)
                     target = sents
                     SR_out = greedy_decode(SR_model, target, noise, args.MAX_LENGTH, pad_idx, start_idx, args.channel) #改
-                    RD_out = greedy_decode(RD_model, target, noise, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
+                    RD_out = greedy_decode(RD_model, SR_out, noise, args.MAX_LENGTH, pad_idx, start_idx, args.channel)
                     sentences = RD_out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
                     output_word = output_word + result_string
@@ -166,7 +166,7 @@ def batch_BLEU_test(args, SNR, StoT, SR_model, RD_model):
                     target_string = list(map(StoT.sequence_to_text, target_sent))
                     target_word = target_word + target_string
                 Tx_word.append(target_word)
-                Rx_word.append(word)
+                Rx_word.append(output_word)
             bleu_score = []
             for sent1, sent2 in zip(Tx_word, Rx_word):
                 # 1-gram
@@ -195,16 +195,22 @@ if __name__ == '__main__':
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')
+    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1024DeepTest_net_checkpoint.pth')
     SR_model.load_state_dict(SR_checkpoint['model'])
 
     #加载RD_model
     RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock/0727DeepTest_net_checkpoint.pth')
+    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1024DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint['model'])
 
-    SNR = [4,5,6,7,8,9]
-    test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)    # sentence similarity compute
-    # score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
+    SNR = [0,3,6,9,12,15,18]
+    # test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)    # sentence similarity compute
+    score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
+    # print(score)
+
+    #bleu1 S-R->D
+    #[0.53723313 0.80026352 0.87785538 0.8998838  0.90758901 0.91137339 0.91350405]
+
+    #bleu1 S->D
 

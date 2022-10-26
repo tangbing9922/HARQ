@@ -28,16 +28,16 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Relay', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Direct', type=str)
+parser.add_argument('--channel', default='AWGN_Direct', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
-parser.add_argument('--batch_size', default=128, type=int)
-parser.add_argument('--epochs', default=200, type=int)
+parser.add_argument('--batch_size', default=512, type=int)
+parser.add_argument('--epochs', default=150, type=int)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -56,7 +56,7 @@ def train(epoch, args, net1, mi_net):
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
     # _snr = torch.randint(-2, 4,(1,))    # 修改, 信道条件较差
-    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(3), size=(1))
 
     total = 0
     loss_record = []

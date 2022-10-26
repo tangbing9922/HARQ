@@ -15,8 +15,8 @@ from w3lib.html import remove_tags
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='./europarl/test_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct', type=str)
+parser.add_argument('--channel', default='AWGN_Direct', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
 parser.add_argument('--d-model', default=128, type = int)
@@ -31,7 +31,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def performance(args, SNR, net):
     # similarity = Similarity(args.bert_config_path, args.bert_checkpoint_path, args.bert_dict_path)
-    bleu_score_1gram = BleuScore(0, 0, 0, 1)
+    bleu_score_1gram = BleuScore(1, 0, 0, 0)
 
     test_eur = EurDataset('test')
     test_iterator = DataLoader(test_eur, batch_size=args.batch_size, num_workers=0,
@@ -49,11 +49,12 @@ def performance(args, SNR, net):
             for snr in tqdm(SNR):
                 word = []
                 target_word = []
+                noise_std = SNR_to_noise(snr)
                 for sents in test_iterator:
 
                     sents = sents.to(device)
                     target = sents
-                    out = greedy_decode(net, target, snr, args.MAX_LENGTH, pad_idx, start_idx, args.channel)#改
+                    out = greedy_decode(net, target, noise_std, args.MAX_LENGTH, pad_idx, start_idx, args.channel)#改
 
                     sentences = out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
@@ -82,7 +83,7 @@ def performance(args, SNR, net):
 if __name__ == '__main__':
     args = parser.parse_args()
     # SNR = [0,3,6,9,12,15,18]
-    SNR = [4, 5, 6, 7, 8, 9]
+    SNR = [0, 3, 6, 9, 12, 15, 18]
     # args.checkpoint_path = 'E:/Desktop/tb/coding/code/DeepSC-master' + args.checkpoint_path
     vocab = json.load(open(args.vocab_file, 'rb'))
     token_to_idx = vocab['token_to_idx']
@@ -92,11 +93,10 @@ if __name__ == '__main__':
     start_idx = token_to_idx["<START>"]
     end_idx = token_to_idx["<END>"]
 
-    """ define Q_optimizer and loss function """
     deepTest = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    model_checkpoint = torch.load(os.path.join(args.checkpoint_path, '0727DeepTest_net_checkpoint.pth'))
+    model_checkpoint = torch.load(os.path.join(args.checkpoint_path, '1024DeepTest_net_checkpoint.pth'))
     deepTest.load_state_dict(model_checkpoint['model'])
     print('model load!')
 
