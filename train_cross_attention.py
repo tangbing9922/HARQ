@@ -20,7 +20,7 @@ import argparse
 from tqdm import tqdm
 from utils import SNR_to_noise, SeqtoText, subsequent_mask, Channel_With_PathLoss, loss_function
 from utils import initNetParams, create_masks, PowerNormalize, train_mi, greedy_decode
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1027
 from Model import DeepTest
 from dataset import EurDataset, collate_data
 
@@ -62,7 +62,7 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
     SR_channel = 'AWGN_Relay'
     SD_output = greedy_decode(model_SD, src, noise_std_SD, args.MAX_LENGTH, pad, start_symbol, SD_channel)
     SR_output = greedy_decode(model_SR, src, noise_std_SR, args.MAX_LENGTH, pad, start_symbol, SR_channel)
-
+    # noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1)) # noise_std[0]
     RD_output = greedy_decode(model_SR, SR_output, noise_std_SR, args.MAX_LENGTH, pad, start_symbol, SR_channel)
 
     SD_enc_output = model_SD.encoder(SD_output, src_mask)
@@ -70,10 +70,11 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
 
     cross_feature = model.Cross_Attention_Block(SR_enc_output, SD_enc_output, src_mask)
 
-    channel_enc_output = model.channel_encoder(cross_feature)
-
-    channel_dec_output = model.channel_decoder(channel_enc_output)
-    dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
+    # channel_enc_output = model.channel_encoder(cross_feature)
+    #
+    # channel_dec_output = model.channel_decoder(channel_enc_output)
+    output = model.nonlinear_transform(cross_feature)
+    dec_output = model.decoder(trg_inp, output, look_ahead_mask, src_mask)
     pred = model.dense(dec_output)
     ntokens = pred.size(-1)
     loss = loss_function(pred.contiguous().view(-1, ntokens),
@@ -185,13 +186,13 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1027(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
 
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     optimizer = torch.optim.Adam(cross_SC.parameters(),
-                                 lr=1e-4, betas=(0.9, 0.98), eps=1e-8, weight_decay = 5e-4)
+                                 lr=1e-3, betas=(0.9, 0.99), eps=1e-8, weight_decay = 5e-4)
 
     initNetParams(cross_SC)
 
@@ -213,7 +214,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1025cross_SC_net_checkpoint.pth')
+                }, args.saved_checkpoint_path + '/1027cross_SC_net_checkpoint.pth')
 
             std_acc = total_loss
 

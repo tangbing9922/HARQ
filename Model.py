@@ -260,12 +260,12 @@ class DeepTest(nn.Module):
                                              nn.ReLU(inplace=True),
                                              nn.Linear(256, 16))
 
-        self.channel_decoder = ChannelDecoder(16, d_model, 256)
+        self.channel_decoder = ChannelDecoder(16, d_model, 256)# 和deepSC的区别就在这
 
         self.decoder = Decoder(num_layers, trg_vocab_size, trg_max_len,
                                d_model, num_heads, dff, dropout)
 
-        self.predict = nn.Linear(d_model, trg_vocab_size)
+        self.predict = nn.Linear(d_model, trg_vocab_size)# 名字改了， 无语
 
 
 class Policy(nn.Module):#策略网络

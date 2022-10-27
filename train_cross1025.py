@@ -171,9 +171,10 @@ def greedy_decode4cross(model, src, direct_feature, relay_feature,
     # create src_mask
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
     cross_feature = model.Cross_Attention_Block(relay_feature, direct_feature, src_mask)
-    channel_enc_output = model.channel_encoder(cross_feature)
+    # channel_enc_output = model.channel_encoder(cross_feature)
     outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)
-    memory = model.channel_decoder(channel_enc_output)
+    # memory = model.channel_decoder(channel_enc_output)
+    memory = model.nonlinear_transform(cross_feature)
     # torch.tensor.fill_(x)用指定的值x填充张量
     # torch.tensor.type_as(type) 将tensor的类型转换为给定张量的类型
     for i in range(max_len - 1):

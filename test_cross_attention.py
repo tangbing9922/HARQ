@@ -16,7 +16,7 @@ from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, Seqto
 from utils import create_masks
 from dataset import EurDataset, collate_data
 from Model import DeepTest
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1027
 from models.mutual_info import Mine
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -37,7 +37,7 @@ parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
-parser.add_argument('--batch_size', default=512, type=int)
+parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--epochs', default=2, type=int)
 
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     ## 加载预训练 的 Relay model 和 Destination model
     pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
     pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1025cross_SC_net_checkpoint.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1027cross_SC_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1027(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     cross_SC.load_state_dict(cross_checkpoint['model'])
@@ -184,3 +184,4 @@ if __name__ == '__main__':
     SNR = [0, 3, 6, 9, 12, 15, 18]
     batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, StoT)
     #[0.41507163 0.57712322 0.6193147  0.62849452 0.6330635  0.6340417 0.63516121]
+    #[0.41803028 0.58722765 0.63648964 0.65079835 0.65588512 0.65957994 0.66025217]
