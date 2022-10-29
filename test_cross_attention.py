@@ -16,7 +16,7 @@ from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, Seqto
 from utils import create_masks
 from dataset import EurDataset, collate_data
 from Model import DeepTest
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1027
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
 from models.mutual_info import Mine
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     ## 加载预训练 的 Relay model 和 Destination model
     pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
     pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1027cross_SC_net_checkpoint.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1026cross_SC_net_checkpoint_1028.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC_1027(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1026(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     cross_SC.load_state_dict(cross_checkpoint['model'])
@@ -183,5 +183,8 @@ if __name__ == '__main__':
     # single_sentence_test(cross_SC, SR_model, SD_model, sentences)
     SNR = [0, 3, 6, 9, 12, 15, 18]
     batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, StoT)
-    #[0.41507163 0.57712322 0.6193147  0.62849452 0.6330635  0.6340417 0.63516121]
-    #[0.41803028 0.58722765 0.63648964 0.65079835 0.65588512 0.65957994 0.66025217]
+    #[0.41507163 0.57712322 0.6193147  0.62849452 0.6330635  0.6340417 0.63516121] Cross attention SC
+    #[0.41803028 0.58722765 0.63648964 0.65079835 0.65588512 0.65957994 0.66025217]Cross attention SC 1026
+    #[0.37937346 0.52731952 0.56833083 0.57898284 0.58267165 0.58539657 0.58566599]1027
+    #[0.41236484 0.57524287 0.61975223 0.63189181 0.63598056 0.63781245 0.63876518]1026_1027 学习率不一样
+    #

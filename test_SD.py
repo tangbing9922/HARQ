@@ -15,19 +15,21 @@ from models.transceiver import DeepSC
 from torch.utils.data import DataLoader
 from utils import BleuScore, SNR_to_noise, greedy_decode, SeqtoText
 from tqdm import tqdm
+from models.transceiver import Cross_Attention_DeepSC, Cross_Attention_DeepSC_1027, Cross_Attention_DeepSC_1026
+from Model import DeepTest
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='checkpoints/Train_SemanticBlock_Direct/1024DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1024DeepTest_net_checkpoint.pth', type=str)
 parser.add_argument('--channel', default='AWGN_Direct', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
 parser.add_argument('--d-model', default=128, type = int)
 parser.add_argument('--dff', default=512, type=int)
-parser.add_argument('--num-layers', default=4, type=int)
+parser.add_argument('--num-layers', default=3, type=int)
 parser.add_argument('--num-heads', default=8, type=int)
-parser.add_argument('--batch-size', default=64, type=int)
+parser.add_argument('--batch-size', default=128, type=int)
 parser.add_argument('--epochs', default=2, type = int)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -41,7 +43,7 @@ def performance(args, SNR, net):
     test_iterator = DataLoader(test_eur, batch_size=args.batch_size, num_workers=0,
                                pin_memory=True, collate_fn=collate_data)
 
-    StoT = SeqtoText(token_to_idx, end_idx)
+    StoT = SeqtoText(token_to_idx, start_idx, end_idx)
     score = []
     score2 = []
     net.eval()
@@ -106,9 +108,9 @@ if __name__ == '__main__':
     end_idx = token_to_idx["<END>"]
 
     """ define optimizer and loss function """
-    deepsc = DeepSC(args.num_layers, num_vocab, num_vocab,
-                        num_vocab, num_vocab, args.d_model, args.num_heads,
-                        args.dff, 0.1).to(device)
+    deepsc_direct = DeepTest(args.num_layers, num_vocab, num_vocab,
+                     args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+                     args.dff, 0.1).to(device)
 
     # model_paths = []
     # for fn in os.listdir(args.checkpoint_path):
@@ -121,10 +123,11 @@ if __name__ == '__main__':
     # model_path, _ = model_paths[-1]
     model_path = args.checkpoint_path
     checkpoint = torch.load(model_path)
-    deepsc.load_state_dict(checkpoint)
+    deepsc_direct.load_state_dict(checkpoint['model'])
     print('model load!')
 
-    bleu_score = performance(args, SNR, deepsc)
+    bleu_score = performance(args, SNR, deepsc_direct)
     print(bleu_score)
 
     #similarity.compute_similarity(sent1, real)
+    #[0.47126111 0.46186365 0.45589658 0.44647044 0.44552202 0.4407542 0.44265609]直接链路的性能

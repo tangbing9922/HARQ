@@ -20,7 +20,7 @@ import argparse
 from tqdm import tqdm
 from utils import SNR_to_noise, SeqtoText, subsequent_mask, Channel_With_PathLoss, loss_function
 from utils import initNetParams, create_masks, PowerNormalize, train_mi, greedy_decode
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1027
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
 from Model import DeepTest
 from dataset import EurDataset, collate_data
 
@@ -38,7 +38,7 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=512, type=int)
-parser.add_argument('--epochs', default=100, type=int)
+parser.add_argument('--epochs', default=200, type=int)
 
 # 传进来之前 把 relay_model 和 dest_model的encoder的参数复制给 cross_model 对应的两个encoder
 # def crossAtten_train_step(relay_model, dest_model, src, trg, noise_std, pad, opt,
@@ -70,11 +70,11 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
 
     cross_feature = model.Cross_Attention_Block(SR_enc_output, SD_enc_output, src_mask)
 
-    # channel_enc_output = model.channel_encoder(cross_feature)
-    #
-    # channel_dec_output = model.channel_decoder(channel_enc_output)
-    output = model.nonlinear_transform(cross_feature)
-    dec_output = model.decoder(trg_inp, output, look_ahead_mask, src_mask)
+    channel_enc_output = model.channel_encoder(cross_feature)
+
+    channel_dec_output = model.channel_decoder(channel_enc_output)
+    # output = model.nonlinear_transform(cross_feature)
+    dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
     pred = model.dense(dec_output)
     ntokens = pred.size(-1)
     loss = loss_function(pred.contiguous().view(-1, ntokens),
@@ -118,8 +118,8 @@ def train_Cross(epoch, args, cross_net, SR_net, SD_net, mi_net = None):
     pbar = tqdm(train_iterator)
 
     noise_std_SD = SNR_to_noise(0)
-    noise_std_SR = SNR_to_noise(6)
-
+    noise_std_SR = np.random.uniform(SNR_to_noise(6), SNR_to_noise(18), size=(1))
+    noise_std_SR = noise_std_SR.astype(np.float64)[0]
     total = 0
     loss_record = []
     for sents in pbar:
@@ -186,13 +186,13 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC_1027(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1026(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
 
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     optimizer = torch.optim.Adam(cross_SC.parameters(),
-                                 lr=1e-3, betas=(0.9, 0.99), eps=1e-8, weight_decay = 5e-4)
+                                 lr=2e-4, betas=(0.9, 0.99), eps=1e-8, weight_decay = 5e-4)
 
     initNetParams(cross_SC)
 
@@ -214,7 +214,8 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1027cross_SC_net_checkpoint.pth')
+                }, args.saved_checkpoint_path + '/1026cross_SC_net_checkpoint_1028.pth')
+                #1026_1027 avg_total_loss in 1 epoch: 0.5045082498368599
 
             std_acc = total_loss
 
