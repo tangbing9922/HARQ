@@ -200,4 +200,33 @@ def greedy_decode4cross(model, src, direct_feature, relay_feature,
 
     return outputs
 
+def greedy_decode4cross_feature(model, src, direct_feature, relay_feature,
+                        max_len, padding_idx, start_symbol):
+    # create src_mask
+    src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
+    cross_feature = model.Cross_Attention_Block(relay_feature, direct_feature, src_mask)
+    outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)
+    for i in range(max_len - 1):
+        trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
+        look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
+        combined_mask = torch.max(trg_mask, look_ahead_mask)
+        combined_mask = combined_mask.to(device)
+
+        # decode the received signal
+        dec_output = model.decoder(outputs, cross_feature, combined_mask, None)
+        pred = model.dense(dec_output)
+
+        # predict the output_sentences
+        prob = pred[:, -1:, :]  # (batch_size, 1, vocab_size)
+        # prob = prob.squeeze()
+
+        # return the max-prob index
+        _, next_word = torch.max(prob, dim=-1)
+        # next_word = next_word.unsqueeze(1)
+
+        # next_word = next_word.data[0]
+        outputs = torch.cat([outputs, next_word], dim=1)
+
+    return outputs
+
 

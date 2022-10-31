@@ -23,7 +23,7 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock', type=str)
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Relay', type=str)
 parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
@@ -34,8 +34,6 @@ parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=512, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
 
 def setup_seed(seed):
@@ -50,7 +48,7 @@ def train(epoch, args, net1, mi_net=None):
     train_iterator = DataLoader(train_eur, batch_size=args.batch_size, num_workers=0,
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
-    _snr = torch.randint(4, 10,(1,))
+    # _snr = torch.randint(4, 10,(1,))
 
     total = 0
     loss_record = []
@@ -61,8 +59,10 @@ def train(epoch, args, net1, mi_net=None):
 
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
-            mi = train_mi(net1, mi_net, sents, _snr, pad_idx, mi_opt, args.channel)
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+            noise_std = noise_std.astype(np.float64)[0]
+            mi = train_mi(net1, mi_net, sents, noise_std, pad_idx, mi_opt, args.channel)
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT, mi_net)
             # MI 和 semantic block 一块训练
             total += loss
@@ -77,7 +77,7 @@ def train(epoch, args, net1, mi_net=None):
                 )
             )
         else:
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT)
             total += loss
             los_cos = los_cos.cpu().detach().numpy()
@@ -94,6 +94,7 @@ def train(epoch, args, net1, mi_net=None):
 
 if __name__ == '__main__':
     setup_seed(7)
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     """ preparing the dataset """
     vocab = json.load(open(args.vocab_file, 'rb'))
@@ -137,12 +138,13 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0830DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/0830mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
 
             std_acc = total_loss
+            #1031DeepTest_net_checkpoint.pth 0-18db，之前的是4-10db

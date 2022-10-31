@@ -1,8 +1,7 @@
 # -*- coding:utf-8 _*-
 """
 @Author: Bing Tang
-@Time: “2022/10/26 9:06”
-单句 解码 cross attention测试
+@Time: “2022/10/31 11:46”
 """
 import os
 import argparse
@@ -22,7 +21,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from preprocess_text import tokenize
 from sentence_transformers import SentenceTransformer, util
-from train_cross1025 import greedy_decode4cross
+from train_cross1025 import greedy_decode4cross, greedy_decode4cross_feature
+from train_cross_feature import getFeature_afterChannel
 
 parser = argparse.ArgumentParser()
 
@@ -103,25 +103,27 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, StoT):
             for snr in tqdm(SNR):
                 output_word = []
                 target_word = []
-                noise = SNR_to_noise(snr)
+                noise_std_SR = SNR_to_noise(snr)
                 for sents in test_iterator:
                     sents = sents.to(device)
                     target = sents
                     trg_inp = target[:, :-1]
                     trg_real = target[:, 1:]
                     src_mask, look_ahead_mask = create_masks(target, trg_inp, pad_idx)
-
+                    noise_std_SD = SNR_to_noise(0)
                     SD_channel = 'AWGN_Direct'
                     SR_channel = 'AWGN_Relay'
-                    noise_std_SD = SNR_to_noise(0)
-                    SD_output = greedy_decode(SD_model, target, noise_std_SD, args.MAX_LENGTH, pad_idx, start_idx, SD_channel)
-                    SR_output = greedy_decode(SR_model, target, noise, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
-                    RD_output = greedy_decode(SR_model, SR_output, noise, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
+                    # 不用 greedy_decode 用 getFeature_afterChannel
+                    SD_Rx_sig = getFeature_afterChannel(SD_model, target, noise_std_SD, args.MAX_LENGTH, pad_idx, start_idx, SD_channel)
+                    SR_output = greedy_decode(SR_model, target, noise_std_SR, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
+                    RD_Rx_sig = getFeature_afterChannel(SR_model, SR_output, noise_std_SR, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
 
-                    SD_enc_output = SD_model.encoder(SD_output, src_mask)
-                    SR_enc_output = SR_model.encoder(RD_output, src_mask)
-
-                    out = greedy_decode4cross(model, target, SD_enc_output, SR_enc_output, args.MAX_LENGTH,
+                    # 中继链路 S->R 解码 R->D过encoder -> channel encoder -> channel -> channel decoder 之后过cross attention
+                    # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
+                    SD_Rx_feature = SD_model.channel_decoder(SD_Rx_sig)
+                    SR_Rx_feature = SR_model.channel_decoder(RD_Rx_sig)
+                    # 中午改到这里
+                    out = greedy_decode4cross_feature(model, target, SD_Rx_feature, SR_Rx_feature, args.MAX_LENGTH,
                                               pad_idx, start_idx)
 
                     sentences = out.cpu().numpy().tolist()
@@ -160,7 +162,7 @@ if __name__ == '__main__':
     ## 加载预训练 的 Relay model 和 Destination model
     pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
     pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1026cross_SC_net_checkpoint_1028.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1031cross_SC_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -183,8 +185,4 @@ if __name__ == '__main__':
     # single_sentence_test(cross_SC, SR_model, SD_model, sentences)
     SNR = [0, 3, 6, 9, 12, 15, 18]
     batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, StoT)
-    #[0.41507163 0.57712322 0.6193147  0.62849452 0.6330635  0.6340417 0.63516121] Cross attention SC
-    #[0.41803028 0.58722765 0.63648964 0.65079835 0.65588512 0.65957994 0.66025217]Cross attention SC 1026
-    #[0.37937346 0.52731952 0.56833083 0.57898284 0.58267165 0.58539657 0.58566599]1027
-    #[0.41236484 0.57524287 0.61975223 0.63189181 0.63598056 0.63781245 0.63876518]1026_1027 学习率不一样
-    #[0.45080312 0.66733046 0.68842908 0.67858357 0.67126984 0.66494617 0.66358611]1031
+    #[0.45289038 0.65106855 0.65806355 0.63884641 0.62660946 0.61965274 0.61611706]
