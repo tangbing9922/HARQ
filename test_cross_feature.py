@@ -160,7 +160,8 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
+    #1031 更新Relay mode
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
     pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
     cross_checkpoint = torch.load(args.checkpoint_path + '/1031cross_SC_net_checkpoint.pth')
 
@@ -185,4 +186,4 @@ if __name__ == '__main__':
     # single_sentence_test(cross_SC, SR_model, SD_model, sentences)
     SNR = [0, 3, 6, 9, 12, 15, 18]
     batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, StoT)
-    #[0.45289038 0.65106855 0.65806355 0.63884641 0.62660946 0.61965274 0.61611706]
+    #[0.47289038 0.65106855 0.65806355 0.63884641 0.62660946 0.61965274 0.61611706]

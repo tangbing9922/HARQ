@@ -203,6 +203,6 @@ if __name__ == '__main__':
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
                 }, args.saved_checkpoint_path + '/1031cross_SC_net_checkpoint.pth')
-                #1026_1027 avg_total_loss in 1 epoch: 0.5045082498368599
+                # cross feature
 
             std_acc = total_loss

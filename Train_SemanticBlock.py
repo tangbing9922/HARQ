@@ -107,8 +107,8 @@ if __name__ == '__main__':
 
     """ define Q_optimizer and loss function """
     deepTest = DeepTest(args.num_layers, num_vocab, num_vocab,
-                        args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
-                        args.dff, 0.1).to(device)
+                     args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+                     args.dff, 0.1).to(device)
     mi_net = Mine().to(device)
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     optimizer = torch.optim.Adam(deepTest.parameters(),
@@ -139,12 +139,5 @@ if __name__ == '__main__':
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
                 }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
-
-                torch.save({
-                    'model': mi_net.state_dict(),
-                    'optimizer': mi_opt.state_dict(),
-                    'epoch': epoch,
-                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
-
             std_acc = total_loss
             #1031DeepTest_net_checkpoint.pth 0-18db，之前的是4-10db

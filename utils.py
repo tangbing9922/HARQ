@@ -512,11 +512,12 @@ def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, c
     model.train()
     trg_inp = trg[:, :-1]
     trg_real = trg[:, 1:]
-    channels = Channel_With_PathLoss_cuda1()
+    # channels = Channel_With_PathLoss_cuda1()
+    channels = Channel_With_PathLoss()
     opt.zero_grad()
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    src_mask, look_ahead_mask = create_masks_cuda1(src, trg_inp, pad)
+    src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
     enc_output = model.encoder(src, src_mask)
     channel_enc_output = model.channel_encoder(enc_output)
     Tx_sig = PowerNormalize(channel_enc_output)
@@ -539,7 +540,7 @@ def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, c
     target = src
     target_string = target.cpu().numpy().tolist()
     target_sentences = list(map(S2T.sequence_to_text, target_string))
-    out = greedy_decode_cuda1(model, src, noise_std, MAX_len, pad, start_symbol, channel)
+    out = greedy_decode(model, src, noise_std, MAX_len, pad, start_symbol, channel)
     out_sentences = out.cpu().numpy().tolist()
     result_sentences = list(map(S2T.sequence_to_text, out_sentences))
 
@@ -598,8 +599,9 @@ def Q_net_train_step(model, src, trg, snr, pad, Q_opt, criterion, channel, Q_Net
 def train_mi(model, mi_net, src, noise_std, padding_idx, opt, channel):
     mi_net.train()
     opt.zero_grad()#
-    channels = Channel_With_PathLoss_cuda1()
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    # channels = Channel_With_PathLoss_cuda1()
+    channels = Channel_With_PathLoss()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)  # [batch, 1, seq_len]
     #0724
     enc_output = model.encoder(src, src_mask)   #   enc_output : 128 * 32 * 128 batch_size * max_len * d_model

@@ -37,7 +37,7 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=512, type=int)
-parser.add_argument('--epochs', default=150, type=int)
+parser.add_argument('--epochs', default=200, type=int)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -56,7 +56,8 @@ def train(epoch, args, net1, mi_net):
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
     # _snr = torch.randint(-2, 4,(1,))    # 修改, 信道条件较差
-    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(3), size=(1))
+    #1031修改 在各种信道下训练
+    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
 
     total = 0
     loss_record = []
@@ -144,12 +145,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1024mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1031mi_net_checkpoint.pth')
 
             std_acc = total_loss
