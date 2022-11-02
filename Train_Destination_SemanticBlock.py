@@ -57,19 +57,19 @@ def train(epoch, args, net1, mi_net):
     pbar = tqdm(train_iterator)
     # _snr = torch.randint(-2, 4,(1,))    # 修改, 信道条件较差
     #1031修改 在各种信道下训练
-    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
-
     total = 0
     loss_record = []
     total_cos = 0
     total_MI = 0
+    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+    noise_std = noise_std.astype(np.float64)[0]
     for sents in pbar:
         sents = sents.to(device)
 
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
-            mi = train_mi(net1, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std[0], pad_idx, optimizer, criterion, args.channel, start_idx,
+            mi = train_mi(net1, mi_net, sents, noise_std, pad_idx, mi_opt, args.channel)
+            loss, los_cos = semantic_block_train_step(net1, sents, sents,noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT, mi_net)
             # MI 和 semantic block 一块训练
             total += loss
@@ -84,7 +84,7 @@ def train(epoch, args, net1, mi_net):
                 )
             )
         else:
-            loss, los_cos = semantic_block_train_step(net1, sents, sents, _snr, pad_idx, optimizer, criterion, args.channel, start_idx,
+            loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std[0], pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT)
             total += loss
             los_cos = los_cos.cpu().detach().numpy()
@@ -145,12 +145,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1031mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1101mi_net_checkpoint.pth')
 
             std_acc = total_loss

@@ -118,7 +118,7 @@ def train_Cross(epoch, args, cross_net, SR_net, SD_net, mi_net = None):
     pbar = tqdm(train_iterator)
 
     noise_std_SD = SNR_to_noise(0)
-    noise_std_SR = np.random.uniform(SNR_to_noise(6), SNR_to_noise(18), size=(1))
+    noise_std_SR = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
     noise_std_SR = noise_std_SR.astype(np.float64)[0]
     total = 0
     loss_record = []
@@ -173,8 +173,8 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
-    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -214,7 +214,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1026cross_SC_net_checkpoint_1028.pth')
+                }, args.saved_checkpoint_path + '/1101cross_SC_net_checkpoint.pth')
                 #1026_1027 avg_total_loss in 1 epoch: 0.5045082498368599
 
             std_acc = total_loss

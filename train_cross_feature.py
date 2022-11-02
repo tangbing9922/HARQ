@@ -104,8 +104,9 @@ def train_Cross(epoch, args, cross_net, SR_net, SD_net, mi_net = None):
                                 pin_memory=True, collate_fn=collate_data)
     pbar = tqdm(train_iterator)
 
-    noise_std_SD = SNR_to_noise(0)
-    noise_std_SR = np.random.uniform(SNR_to_noise(6), SNR_to_noise(18), size=(1))# 每一个epoch 里面变
+    noise_std_SD = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+    noise_std_SD = noise_std_SD.astype(np.float64)[0]
+    noise_std_SR = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))# 每一个epoch 里面变
     noise_std_SR = noise_std_SR.astype(np.float64)[0]
     total = 0
     loss_record = []
@@ -160,8 +161,8 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
-    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -179,7 +180,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss(reduction = 'none')
     optimizer = torch.optim.Adam(cross_SC.parameters(),
-                                 lr=2e-4, betas=(0.9, 0.99), eps=1e-8, weight_decay = 5e-4)
+                                 lr=1e-4, betas=(0.9, 0.99), eps=1e-8, weight_decay = 5e-4)
 
     initNetParams(cross_SC)
     # cross_SC.load_state_dict(pretrained_Relay_checkpoint['model'])
@@ -202,7 +203,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1031cross_SC_net_checkpoint.pth')
+                }, args.saved_checkpoint_path + '/1102cross_SC_net_checkpoint_SDrand.pth')
                 # cross feature
 
             std_acc = total_loss

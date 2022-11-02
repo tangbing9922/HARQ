@@ -302,7 +302,7 @@ class Channel_With_PathLoss():
         Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
-    def AWGN_Direct(self, Tx_sig, SNR, distance = 120):
+    def AWGN_Direct(self, Tx_sig, noise_std, distance = 120):
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)  # 何时考虑
@@ -311,9 +311,8 @@ class Channel_With_PathLoss():
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = Tx_sig * PL
         # std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
-        std_no = SNR_to_noise(SNR)
         Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
-        Tx_sig = Tx_sig + torch.normal(0., std_no, size=Tx_sig.shape).to(self.device)
+        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
         Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
