@@ -17,6 +17,7 @@ import argparse
 from tqdm import tqdm
 from utils import SNR_to_noise, SeqtoText, subsequent_mask, Channel_With_PathLoss, loss_function
 from utils import initNetParams, create_masks, PowerNormalize, train_mi, greedy_decode
+# 将 cross_attention的网络参数设置和DeepTest一致
 from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
 from Model import DeepTest
 from dataset import EurDataset, collate_data
@@ -82,6 +83,8 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
     # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
     SD_Rx_feature = model_SD.channel_decoder(SD_Rx_sig)
     SR_Rx_feature = model_SR.channel_decoder(RD_Rx_sig)
+
+    #1103
 
     cross_feature = model.Cross_Attention_Block(SR_Rx_feature, SD_Rx_feature, src_mask)
 
@@ -203,7 +206,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1102cross_SC_net_checkpoint_SDrand.pth')
+                }, args.saved_checkpoint_path + '/1102_cross_SC_net_checkpoint_SDrand_0.1.pth')
                 # cross feature
 
             std_acc = total_loss

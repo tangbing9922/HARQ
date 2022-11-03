@@ -75,6 +75,7 @@ def single_sentence_test(model, relay_model, direct_model, sentences):
 
             SD_enc_output = SD_model.encoder(SD_output, src_mask)
             SR_enc_output = SR_model.encoder(RD_output, src_mask)
+
             out = greedy_decode4cross(model, target, SD_enc_output,SR_enc_output, args.MAX_LENGTH,
                                       pad_idx, start_idx)
             out_sentences = out.cpu().numpy().tolist()
@@ -85,7 +86,7 @@ def single_sentence_test(model, relay_model, direct_model, sentences):
         print("target sentence:",target_word)
         print("reconstruct sentence:",word)
 
-def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, StoT):
+def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, SNR_SD, StoT):
     bleu_score_1gram = BleuScore(1, 0, 0, 0)
     score = []
     score1 = []
@@ -110,7 +111,7 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, StoT):
                     trg_inp = target[:, :-1]
                     trg_real = target[:, 1:]
                     src_mask, look_ahead_mask = create_masks(target, trg_inp, pad_idx)
-                    noise_std_SD = SNR_to_noise(3)
+                    noise_std_SD = SNR_to_noise(SNR_SD)
                     SD_channel = 'AWGN_Direct'
                     SR_channel = 'AWGN_Relay'
                     # 不用 greedy_decode 用 getFeature_afterChannel
@@ -122,6 +123,9 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, StoT):
                     # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
                     SD_Rx_feature = SD_model.channel_decoder(SD_Rx_sig)
                     SR_Rx_feature = SR_model.channel_decoder(RD_Rx_sig)
+
+                    SD_Rx_feature = SD_Rx_feature * 0.1
+                    SR_Rx_feature = SR_Rx_feature * 0.9
                     # 中午改到这里
                     out = greedy_decode4cross_feature(model, target, SD_Rx_feature, SR_Rx_feature, args.MAX_LENGTH,
                                               pad_idx, start_idx)
@@ -185,7 +189,9 @@ if __name__ == '__main__':
 
     # single_sentence_test(cross_SC, SR_model, SD_model, sentences)
     SNR = [0, 3, 6, 9, 12, 15, 18]
-    batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, StoT)
+    SNR_SD = [0, 3, 6, 9, 12, 15, 18]
+    for SNRSD in SNR_SD:
+        batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, SNRSD, StoT)
     #[0.47289038 0.65106855 0.65806355 0.63884641 0.62660946 0.61965274 0.61611706]1031
     #[0.60500147 0.79472286 0.80953209 0.80281588 0.7964331  0.79383961 0.79146097]1101
 
@@ -198,3 +204,7 @@ if __name__ == '__main__':
     # 1102下午SD和SRD都是0-18dB下随机训练的cross-model
     #[0.59451386 0.78736328 0.80584895 0.79875022 0.79421145 0.79070837 0.79014251]0 : SD snr
     #[0.63462385 0.80558392 0.813909   0.80487099 0.79904299 0.79506224 0.79391638]3
+
+
+    #[0.56390147 0.73267778 0.75885628 0.75796798 0.75732016 0.75621903 0.75473574] 0dB
+    #[0.64014543 0.77720871 0.78569735 0.77968203 0.77707342 0.77544421 0.77396964] 3dB
