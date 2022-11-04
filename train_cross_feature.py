@@ -18,7 +18,7 @@ from tqdm import tqdm
 from utils import SNR_to_noise, SeqtoText, subsequent_mask, Channel_With_PathLoss, loss_function
 from utils import initNetParams, create_masks, PowerNormalize, train_mi, greedy_decode
 # 将 cross_attention的网络参数设置和DeepTest一致
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1103
 from Model import DeepTest
 from dataset import EurDataset, collate_data
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC_1026(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1103(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
 
@@ -206,7 +206,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1102_cross_SC_net_checkpoint_SDrand_0.1.pth')
+                }, args.saved_checkpoint_path + '/1103_cross_SC_net_checkpoint_SDrand.pth')
                 # cross feature
 
             std_acc = total_loss

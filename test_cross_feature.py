@@ -15,7 +15,7 @@ from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, Seqto
 from utils import create_masks
 from dataset import EurDataset, collate_data
 from Model import DeepTest
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1103
 from models.mutual_info import Mine
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -124,8 +124,6 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, SNR_SD, StoT)
                     SD_Rx_feature = SD_model.channel_decoder(SD_Rx_sig)
                     SR_Rx_feature = SR_model.channel_decoder(RD_Rx_sig)
 
-                    SD_Rx_feature = SD_Rx_feature * 0.1
-                    SR_Rx_feature = SR_Rx_feature * 0.9
                     # 中午改到这里
                     out = greedy_decode4cross_feature(model, target, SD_Rx_feature, SR_Rx_feature, args.MAX_LENGTH,
                                               pad_idx, start_idx)
@@ -167,7 +165,7 @@ if __name__ == '__main__':
     #1031 更新Relay mode
     pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
     pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1102cross_SC_net_checkpoint_SDrand.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1103_cross_SC_net_checkpoint_SDrand.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -179,7 +177,7 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC_1026(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1103(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
     cross_SC.load_state_dict(cross_checkpoint['model'])
