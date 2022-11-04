@@ -186,7 +186,7 @@ if __name__ == '__main__':
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
     SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    cross_SC = Cross_Attention_DeepSC_1026(args.num_layers, num_vocab, num_vocab,
+    cross_SC = Cross_Attention_DeepSC_1104(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
 
@@ -214,7 +214,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1101cross_SC_net_checkpoint.pth')
+                }, args.saved_checkpoint_path + '/1104cross_SC_net_checkpoint.pth')
                 #1026_1027 avg_total_loss in 1 epoch: 0.5045082498368599
 
             std_acc = total_loss

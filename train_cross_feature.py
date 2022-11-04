@@ -81,12 +81,16 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
 
     # 中继链路 S->R 解码 R->D过encoder -> channel encoder -> channel -> channel decoder 之后过cross attention
     # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
-    SD_Rx_feature = model_SD.channel_decoder(SD_Rx_sig)
-    SR_Rx_feature = model_SR.channel_decoder(RD_Rx_sig)
+    # 1104 先cross 再 model.channel_decoder
+    # SD_Rx_feature = model_SD.channel_decoder(SD_Rx_sig)
+    # SR_Rx_feature = model_SR.channel_decoder(RD_Rx_sig)
 
-    #1103
+    SD_Rx_feature = model.channel_decoder(SD_Rx_sig)
+    SR_Rx_feature = model.channel_decoder(RD_Rx_sig)
 
     cross_feature = model.Cross_Attention_Block(SR_Rx_feature, SD_Rx_feature, src_mask)
+    # cross_output = model.channel_decoder(cross_feature)
+
 
     # output = model.nonlinear_transform(cross_feature)
     dec_output = model.decoder(trg_inp, cross_feature, look_ahead_mask, src_mask)
@@ -206,7 +210,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1103_cross_SC_net_checkpoint_SDrand.pth')
+                }, args.saved_checkpoint_path + '/1104_cross_SC_net_checkpoint_SDrand.pth')
                 # cross feature
 
             std_acc = total_loss
