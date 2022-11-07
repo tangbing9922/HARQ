@@ -145,12 +145,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1101mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1107mi_net_checkpoint.pth')
 
             std_acc = total_loss

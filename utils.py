@@ -289,7 +289,7 @@ class Channel_With_PathLoss():
     def __init__(self):
         self.device = torch.device('cuda:0')
 
-    def AWGN_Relay(self, Tx_sig, noise_std, distance = 100):#更改
+    def AWGN_Relay(self, Tx_sig, noise_std, distance = 120):#更改
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
@@ -302,11 +302,11 @@ class Channel_With_PathLoss():
         Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
-    def AWGN_Direct(self, Tx_sig, noise_std, distance = 120):
+    def AWGN_Direct(self, Tx_sig, noise_std, distance = 160):
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)  # 何时考虑
-        path_loss_exp = -2  # 路损因子调成多少合适
+        path_loss_exp = -2.2  # 路损因子调成多少合适
         d_ref = 100
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = Tx_sig * PL
