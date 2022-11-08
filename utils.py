@@ -345,6 +345,37 @@ class Channel_With_PathLoss():
         Tx_sig = Tx_sig.view(shape).to(self.device)
         return Tx_sig
 
+class Channel_with_diff_dis():
+    def __init__(self):
+        self.device = torch.device('cuda:0')
+
+    def AWGN_Relay(self, Tx_sig, noise_std, distance = 120):#更改
+        shape = Tx_sig.shape
+        # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
+        # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
+        path_loss_exp = -2
+        d_ref = 100
+        PL = (distance / d_ref) ** path_loss_exp
+        Tx_sig = (Tx_sig * PL)
+        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
+        Tx_sig = Tx_sig.view(shape)
+        return Tx_sig
+
+    def AWGN_Direct(self, Tx_sig, noise_std, distance = 160):
+        shape = Tx_sig.shape
+        # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
+        # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)  # 何时考虑
+        path_loss_exp = -2.2  # 路损因子调成多少合适
+        d_ref = 100
+        PL = (distance / d_ref) ** path_loss_exp
+        Tx_sig = Tx_sig * PL
+        # std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
+        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
+        Tx_sig = Tx_sig.view(shape)
+        return Tx_sig
+
 def initNetParams(model):
     '''Init net parameters.'''
     for p in model.parameters():
@@ -527,6 +558,64 @@ def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, c
         Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
     elif channel == 'AWGN_Direct':
         Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+    else:
+        raise ValueError("Please choose from Relay, Direct")
+
+    channel_dec_output = model.channel_decoder(Rx_sig)
+    dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
+    pred = model.predict(dec_output)
+    ntokens = pred.size(-1)
+    loss = loss_function(pred.contiguous().view(-1, ntokens),
+                         trg_real.contiguous().view(-1),
+                         pad, criterion)
+
+    target = src
+    target_string = target.cpu().numpy().tolist()
+    target_sentences = list(map(S2T.sequence_to_text, target_string))
+    out = greedy_decode(model, src, noise_std, MAX_len, pad, start_symbol, channel)
+    out_sentences = out.cpu().numpy().tolist()
+    result_sentences = list(map(S2T.sequence_to_text, out_sentences))
+
+    embeddings_target = senten_model.encode(target_sentences, convert_to_tensor=True).to(device)
+    embeddings_output = senten_model.encode(result_sentences, convert_to_tensor=True).to(device)
+    cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output).to(device)
+
+    total_cos = 0
+    for i in range(len(target)):
+        total_cos += cos_sim[i][i]
+    los_cos = total_cos / len(target)
+    if mi_net is not None:
+        mi_net.eval()
+        joint, marginal = sample_batch(Tx_sig, Rx_sig)
+        mi_lb, _, _ = mutual_information(joint, marginal, mi_net)
+        loss_mine = -mi_lb
+        loss = loss + 0.001 * loss_mine
+
+    loss = 1.5 * loss - 0.5 * los_cos
+
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+    opt.step()
+    return loss.item(), los_cos
+
+def dis_semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, channel, start_symbol, senten_model, S2T, mi_net, distance):
+    model.train()
+    trg_inp = trg[:, :-1]
+    trg_real = trg[:, 1:]
+    # channels = Channel_With_PathLoss_cuda1()
+    channels = Channel_with_diff_dis()
+    opt.zero_grad()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
+    enc_output = model.encoder(src, src_mask)
+    channel_enc_output = model.channel_encoder(enc_output)
+    Tx_sig = PowerNormalize(channel_enc_output)
+
+    if channel == 'AWGN_Relay':
+        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std, distance)
+    elif channel == 'AWGN_Direct':
+        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std, distance)
     else:
         raise ValueError("Please choose from Relay, Direct")
 

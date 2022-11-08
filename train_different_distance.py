@@ -12,7 +12,7 @@ import torch
 import random
 import torch.nn as nn
 import numpy as np
-from utils import initNetParams, SeqtoText, train_mi, SNR_to_noise
+from utils import initNetParams, SeqtoText, train_mi, SNR_to_noise, dis_semantic_block_train_step
 from dataset import EurDataset, collate_data
 from Model import DeepTest
 from models.mutual_info import Mine
@@ -39,127 +39,6 @@ parser.add_argument('--epochs', default=200, type=int)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
 
-
-class Channel_with_diff_dis():
-    def __init__(self):
-        self.device = torch.device('cuda:0')
-
-    def AWGN_Relay(self, Tx_sig, noise_std, distance = 120):#更改
-        shape = Tx_sig.shape
-        # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
-        # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
-        path_loss_exp = -2
-        d_ref = 100
-        PL = (distance / d_ref) ** path_loss_exp
-        Tx_sig = (Tx_sig * PL)
-        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
-        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
-        Tx_sig = Tx_sig.view(shape)
-        return Tx_sig
-
-    def AWGN_Direct(self, Tx_sig, noise_std, distance = 160):
-        shape = Tx_sig.shape
-        # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
-        # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)  # 何时考虑
-        path_loss_exp = -2.2  # 路损因子调成多少合适
-        d_ref = 100
-        PL = (distance / d_ref) ** path_loss_exp
-        Tx_sig = Tx_sig * PL
-        # std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
-        Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
-        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
-        Tx_sig = Tx_sig.view(shape)
-        return Tx_sig
-
-    def Rayleigh_Relay(self, Tx_sig, SNR, distance = 600):
-        shape = Tx_sig.shape
-        dim = Tx_sig.shape[0] * Tx_sig.shape[1] * Tx_sig.shape[2]
-        spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
-        path_loss_exp = -2
-        d_ref  = 10
-        PL = (distance / d_ref) ** path_loss_exp
-        coe = ((torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2 + torch.normal(0, PL**0.5, (Tx_sig.shape[0],1)) ** 2) ** 0.5) / (2 ** 0.5)
-        std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
-        Tx_sig = Tx_sig * coe.view(-1, 1, 1).to(self.device)
-        Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
-        Tx_sig = Tx_sig.view(shape).to(self.device)
-        return Tx_sig
-
-    def Rayleigh_Direct(self, Tx_sig, SNR, distance = 1000):
-        if distance == 1000:#或者范围
-            path_loss_exp = -3
-        shape = Tx_sig.shape
-        dim = Tx_sig.shape[0] * Tx_sig.shape[1] * Tx_sig.shape[2]
-        spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
-        d_ref = 10
-        PL = (distance / d_ref) ** path_loss_exp
-        coe =  ((torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2 + torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2) ** 0.5) / (2 ** 0.5)
-        std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
-        Tx_sig = Tx_sig * coe.view(-1, 1, 1)
-        Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
-        Tx_sig = Tx_sig.view(shape).to(self.device)
-        return Tx_sig
-
-
-def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, channel, start_symbol, senten_model, S2T, mi_net, distance):
-    model.train()
-    trg_inp = trg[:, :-1]
-    trg_real = trg[:, 1:]
-    # channels = Channel_With_PathLoss_cuda1()
-    channels = Channel_with_diff_dis()
-    opt.zero_grad()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
-    enc_output = model.encoder(src, src_mask)
-    channel_enc_output = model.channel_encoder(enc_output)
-    Tx_sig = PowerNormalize(channel_enc_output)
-
-    if channel == 'AWGN_Relay':
-        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std, distance)
-    elif channel == 'AWGN_Direct':
-        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std, distance)
-    else:
-        raise ValueError("Please choose from Relay, Direct")
-
-    channel_dec_output = model.channel_decoder(Rx_sig)
-    dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
-    pred = model.predict(dec_output)
-    ntokens = pred.size(-1)
-    loss = loss_function(pred.contiguous().view(-1, ntokens),
-                         trg_real.contiguous().view(-1),
-                         pad, criterion)
-
-    target = src
-    target_string = target.cpu().numpy().tolist()
-    target_sentences = list(map(S2T.sequence_to_text, target_string))
-    out = greedy_decode(model, src, noise_std, MAX_len, pad, start_symbol, channel)
-    out_sentences = out.cpu().numpy().tolist()
-    result_sentences = list(map(S2T.sequence_to_text, out_sentences))
-
-    embeddings_target = senten_model.encode(target_sentences, convert_to_tensor=True).to(device)
-    embeddings_output = senten_model.encode(result_sentences, convert_to_tensor=True).to(device)
-    cos_sim = util.pytorch_cos_sim(embeddings_target, embeddings_output).to(device)
-
-    total_cos = 0
-    for i in range(len(target)):
-        total_cos += cos_sim[i][i]
-    los_cos = total_cos / len(target)
-    if mi_net is not None:
-        mi_net.eval()
-        joint, marginal = sample_batch(Tx_sig, Rx_sig)
-        mi_lb, _, _ = mutual_information(joint, marginal, mi_net)
-        loss_mine = -mi_lb
-        loss = loss + 0.001 * loss_mine
-
-    loss = 1.5 * loss - 0.5 * los_cos
-
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
-    opt.step()
-    return loss.item(), los_cos
-
-
 def setup_seed(seed):
     torch.manual_seed(seed)#set the seed for generating random numbers设置生成随机数的种子
     torch.cuda.manual_seed_all(seed)# if you are using multi-GPU.
@@ -182,12 +61,14 @@ def train(epoch, args, net1, mi_net):
     noise_std = noise_std.astype(np.float64)[0]
     for sents in pbar:
         sents = sents.to(device)
-
+        distance_list = [100,120,140,160,180,200]
+        Q = random.randint(0,5)
+        distance = distance_list[Q]
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
             mi = train_mi(net1, mi_net, sents, noise_std, pad_idx, mi_opt, args.channel)
-            loss, los_cos = semantic_block_train_step(net1, sents, sents,noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
-                                                      sentence_model, StoT, mi_net)
+            loss, los_cos = dis_semantic_block_train_step(net1, sents, sents,noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
+                                                      sentence_model, StoT, mi_net, distance)
             # MI 和 semantic block 一块训练
             total += loss
             total_MI += mi
@@ -262,12 +143,12 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1108DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1107mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1108mi_net_checkpoint.pth')
 
             std_acc = total_loss
