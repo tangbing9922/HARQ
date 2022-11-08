@@ -195,13 +195,13 @@ if __name__ == '__main__':
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1031DeepTest_net_checkpoint.pth')
+    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
     SR_model.load_state_dict(SR_checkpoint['model'])
 
     #加载RD_model
     RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1031DeepTest_net_checkpoint.pth')
+    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint['model'])
 
     SNR = [0,3,6,9,12,15,18]
@@ -213,4 +213,6 @@ if __name__ == '__main__':
     #[0.53723313 0.80026352 0.87785538 0.8998838  0.90758901 0.91137339 0.91350405]
     #[0.57857619 0.8552709  0.8967281  0.8977264  0.89459219 0.89323794 0.89085762]
     #bleu1 S->D
+
+    #[0.27463424 0.46264492 0.5806899  0.63233463 0.6561114  0.66920263 0.67410422] 1107 SRD
 

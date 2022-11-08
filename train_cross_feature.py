@@ -36,7 +36,7 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=512, type=int)
-parser.add_argument('--epochs', default=200, type=int)
+parser.add_argument('--epochs', default=300, type=int)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -82,12 +82,12 @@ def crossAtten_train_step(model, model_SR, model_SD, src, trg, noise_std_SR, noi
     # 中继链路 S->R 解码 R->D过encoder -> channel encoder -> channel -> channel decoder 之后过cross attention
     # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
     # 1104 先cross 再 model.channel_decoder
-    # SD_Rx_feature = model_SD.channel_decoder(SD_Rx_sig)
-    # SR_Rx_feature = model_SR.channel_decoder(RD_Rx_sig)
+    SD_Rx_feature = model_SD.channel_decoder(SD_Rx_sig)
+    SR_Rx_feature = model_SR.channel_decoder(RD_Rx_sig)
 
-    SD_Rx_feature = model.channel_decoder(SD_Rx_sig)
-    SR_Rx_feature = model.channel_decoder(RD_Rx_sig)
-
+    # SD_Rx_feature = model.channel_decoder(SD_Rx_sig)
+    # SR_Rx_feature = model.channel_decoder(RD_Rx_sig)
+    # 这里是不是要
     cross_feature = model.Cross_Attention_Block(SR_Rx_feature, SD_Rx_feature, src_mask)
     # cross_output = model.channel_decoder(cross_feature)
 
@@ -168,8 +168,8 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
-    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
@@ -210,7 +210,7 @@ if __name__ == '__main__':
                     'model': cross_SC.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.saved_checkpoint_path + '/1104_cross_SC_net_checkpoint_SDrand.pth')
+                }, args.saved_checkpoint_path + '/1108_cross_SC_net_checkpoint_SDrand.pth')
                 # cross feature
 
             std_acc = total_loss

@@ -40,7 +40,7 @@ parser.add_argument('--epochs', default=2, type=int)
 
 def multi_jump_test(model, num_jump:int, args, SNR, StoT):
     model.eval()
-    bleu_score_1gram = BleuScore(0, 0, 0, 1)
+    bleu_score_1gram = BleuScore(1, 0, 0, 0)
     score = []
     score1 = []
     test_data = EurDataset("test")
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1024DeepTest_net_checkpoint.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,

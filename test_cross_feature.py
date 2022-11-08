@@ -38,7 +38,7 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=128, type=int)
-parser.add_argument('--epochs', default=2, type=int)
+parser.add_argument('--epochs', default=1, type=int)
 
 
 def single_sentence_test(model, relay_model, direct_model, sentences):
@@ -121,8 +121,8 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, SNR_SD, StoT)
 
                     # 中继链路 S->R 解码 R->D过encoder -> channel encoder -> channel -> channel decoder 之后过cross attention
                     # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
-                    SD_Rx_feature = model.channel_decoder(SD_Rx_sig)
-                    SR_Rx_feature = model.channel_decoder(RD_Rx_sig)
+                    SD_Rx_feature = SD_model.channel_decoder(SD_Rx_sig)
+                    SR_Rx_feature = SR_model.channel_decoder(RD_Rx_sig)
 
                     # 中午改到这里
                     out = greedy_decode4cross_feature(model, target, SD_Rx_feature, SR_Rx_feature, args.MAX_LENGTH,
@@ -163,9 +163,9 @@ if __name__ == '__main__':
 
     ## 加载预训练 的 Relay model 和 Destination model
     #1031 更新Relay mode
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
-    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1104_cross_SC_net_checkpoint_SDrand.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1108_cross_SC_net_checkpoint_SDrand.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,

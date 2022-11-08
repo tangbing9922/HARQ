@@ -21,7 +21,7 @@ from Model import DeepTest
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1101DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1107DeepTest_net_checkpoint.pth', type=str)
 parser.add_argument('--channel', default='AWGN_Direct', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
@@ -132,3 +132,5 @@ if __name__ == '__main__':
     #similarity.compute_similarity(sent1, real)
     #[0.47126111 0.46186365 0.45589658 0.44647044 0.44552202 0.4407542 0.44265609]直接链路的性能
     #[0.3872618  0.56218327 0.66083461 0.70544055 0.72354934 0.73184637 0.73522919]1102
+
+    #[0.22120379 0.2584527  0.26804157 0.26761027 0.26756117 0.26806095 0.2687165]1107
