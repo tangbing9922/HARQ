@@ -316,12 +316,12 @@ class Channel_With_PathLoss():
         Tx_sig = Tx_sig.view(shape)
         return Tx_sig
 
-    def Rayleigh_Relay(self, Tx_sig, SNR, distance = 600):
+    def Rayleigh_Relay(self, Tx_sig, SNR, distance = 120):
         shape = Tx_sig.shape
         dim = Tx_sig.shape[0] * Tx_sig.shape[1] * Tx_sig.shape[2]
         spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
         path_loss_exp = -2
-        d_ref  = 10
+        d_ref  = 100
         PL = (distance / d_ref) ** path_loss_exp
         coe = ((torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2 + torch.normal(0, PL**0.5, (Tx_sig.shape[0],1)) ** 2) ** 0.5) / (2 ** 0.5)
         std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
@@ -411,6 +411,8 @@ def PowerNormalize(x):
     # torch.mean(x) 返回x所有元素的平均值, 即返回平均能量(总能量/信号长度)
     # 不加sqrt是信号的平均功率, 即sigpower, 也就是方差
     # 加sqrt是因为这是产生对应的噪声标准差
+    # power = math.sqrt(2) * torch.mean(x_square).sqrt()
+    # 如果是SRD是不是就需要乘根号2
     if power > 1:
         x = torch.div(x, power)
     
