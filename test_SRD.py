@@ -37,7 +37,7 @@ parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int) #考虑不同的 head数 和 layer数
 parser.add_argument('--batch_size', default=512, type=int)
-parser.add_argument('--epochs', default=2, type=int)
+parser.add_argument('--epochs', default=1, type=int)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

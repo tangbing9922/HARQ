@@ -3,6 +3,8 @@
 @Author: Bing Tang
 @Time: “2022/11/9 9:24”
 用于测试 不同距离 的 S -> D 的 模型性能
+固定发射功率 1 噪声功率 1
+或者 发射功率 5
 """
 import json
 import torch
@@ -19,7 +21,7 @@ from Model import DeepTest
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Trian_dis_SemanticBlock_Direct/1108DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Trian_dis_SemanticBlock_Direct/1109DeepTest_net_checkpoint.pth', type=str)
 parser.add_argument('--channel', default='AWGN_Direct', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
@@ -50,18 +52,18 @@ def performance(args, SNR, net, distance):
             Tx_word = []
             Rx_word = []
 
-            for snr in tqdm(SNR):
+            for dis in tqdm(distance):
                 word = []
                 target_word = []
-                noise_std = SNR_to_noise(snr)
-
+                # noise_std = SNR_to_noise(0)
+                # 固定power * 5 噪声功率为1
+                noise_std = 1
                 for sents in test_iterator:
-
                     sents = sents.to(device)
                     # src = batch.src.transpose(0, 1)[:1]
                     target = sents
                     out = greedy_decode4difdis(net, sents, noise_std, args.MAX_LENGTH, pad_idx,
-                                        start_idx, args.channel, distance= distance)
+                                        start_idx, args.channel, distance= dis)
 
                     sentences = out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
@@ -114,9 +116,8 @@ if __name__ == '__main__':
     deepsc_direct.load_state_dict(checkpoint['model'])
     print('model load!')
     distance_list = [100,120,140,160,180,200]
-    for distance in distance_list:
-        bleu_score = performance(args, SNR, deepsc_direct, distance)
-        print(bleu_score)
+    bleu_score = performance(args, SNR, deepsc_direct, distance_list)
+    print(bleu_score)
 
 # 200 [0.18666704 0.21409653 0.22474331 0.22754747 0.22667493 0.22563565 0.22462052]
 # 100 [0.57733577 0.67331975 0.69315537 0.69482437 0.69445219 0.69081847 0.68956179]

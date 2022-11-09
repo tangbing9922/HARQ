@@ -145,7 +145,7 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1109DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1109_Power*5_DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
@@ -156,3 +156,4 @@ if __name__ == '__main__':
             std_acc = total_loss
 
             # 1109DeepTest_net_checkpoint 固定发射功率 和 噪声功率
+            # 尝试把发射功率 * 5 * 10 之类的
