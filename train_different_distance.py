@@ -3,6 +3,7 @@
 @Author: Bing Tang
 @Time: “2022/11/8 16:26”
 训练 不同距离 的 模型
+考虑把 发射功率 固定 噪声功率 固定
 """
 import os
 import argparse
