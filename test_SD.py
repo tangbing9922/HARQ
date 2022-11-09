@@ -21,7 +21,7 @@ from Model import DeepTest
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1107DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_dis_SemanticBlock_Direct/1107DeepTest_net_checkpoint.pth', type=str)
 parser.add_argument('--channel', default='AWGN_Direct', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
