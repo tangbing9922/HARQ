@@ -25,7 +25,7 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Direct', type=str)
+parser.add_argument('--checkpoint_path', default='./checkpoints/Trian_dis_SemanticBlock_Direct', type=str)
 parser.add_argument('--channel', default='AWGN_Direct', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
@@ -58,8 +58,9 @@ def train(epoch, args, net1, mi_net):
     loss_record = []
     total_cos = 0
     total_MI = 0
-    noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
-    noise_std = noise_std.astype(np.float64)[0]
+    # noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+    # noise_std = noise_std.astype(np.float64)[0]
+    noise_std = 1
     for sents in pbar:
         sents = sents.to(device)
         distance_list = [100,120,140,160,180,200]
@@ -68,7 +69,7 @@ def train(epoch, args, net1, mi_net):
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
             mi = train_mi(net1, mi_net, sents, noise_std, pad_idx, mi_opt, args.channel)
-            loss, los_cos = dis_semantic_block_train_step(net1, sents, sents,noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
+            loss, los_cos = dis_semantic_block_train_step(net1, sents, sents, noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
                                                       sentence_model, StoT, mi_net, distance)
             # MI 和 semantic block 一块训练
             total += loss
@@ -144,12 +145,14 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1108DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1109DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1108mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1109mi_net_checkpoint.pth')
 
             std_acc = total_loss
+
+            # 1109DeepTest_net_checkpoint 固定发射功率 和 噪声功率
