@@ -181,4 +181,4 @@ if __name__ == '__main__':
 
     # bleu_score = SD_upper_performance(args, SNR, deepsc_direct)
     score = SRD_upper_performance(args, SNR, StoT, SR_model, RD_model)
-    print(bleu_score)
+    # print(bleu_score)
