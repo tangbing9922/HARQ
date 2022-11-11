@@ -116,8 +116,8 @@ def SRD_upper_performance(args, SNR, StoT, SR_model, RD_model):
                     sents = sents.to(device)
                     target = sents
                     SR_out = upperbound_greedy_decode(SR_model, target, noise, args.MAX_LENGTH, pad_idx, start_idx) #改
-                    RD_out = upperbound_greedy_decode(RD_model, SR_out, noise, args.MAX_LENGTH, pad_idx, start_idx)
-                    sentences = RD_out.cpu().numpy().tolist()
+                    # RD_out = upperbound_greedy_decode(RD_model, SR_out, noise, args.MAX_LENGTH, pad_idx, start_idx)
+                    sentences = SR_out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
                     output_word = output_word + result_string
                     target_sent = target.cpu().numpy().tolist()
