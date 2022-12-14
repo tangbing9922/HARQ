@@ -28,15 +28,15 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Direct', type=str)
-parser.add_argument('--channel', default='AWGN_Direct', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Direct', type=str)
+parser.add_argument('--channel', default='Rayleigh_Direct', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
-parser.add_argument('--batch_size', default=512, type=int)
+parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--epochs', default=200, type=int)
 
 
@@ -145,12 +145,13 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1129DeepTest_net_checkpoint.pth')
 
                 torch.save({
                     'model': mi_net.state_dict(),
                     'optimizer': mi_opt.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1107mi_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1129mi_net_checkpoint.pth')
 
             std_acc = total_loss
+            # 1116 AWGN DIRECT PL 补偿了训练

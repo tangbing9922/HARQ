@@ -202,7 +202,6 @@ def greedy_decode4cross(model, src, direct_feature, relay_feature,
 
 def greedy_decode4cross_feature(model, src, direct_feature, relay_feature,
                         max_len, padding_idx, start_symbol):
-    # create src_mask
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
     cross_feature = model.Cross_Attention_Block(relay_feature, direct_feature, src_mask)
     outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)

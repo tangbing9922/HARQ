@@ -28,8 +28,8 @@ from sentence_transformers import SentenceTransformer, util
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay', type=str)
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
@@ -195,16 +195,16 @@ if __name__ == '__main__':
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                         args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
+    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Rayleigh_Relay/1213DeepTest_net_checkpoint.pth')
     SR_model.load_state_dict(SR_checkpoint['model'])
 
     #加载RD_model
     RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                         args.dff, 0.1).to(device)
-    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
+    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Rayleigh_Relay/1213DeepTest_net_checkpoint.pth')
     RD_model.load_state_dict(RD_checkpoint['model'])
 
-    SNR = [0,3,6,9,12,15,18]
+    SNR = [0,3,6,9,12,15,18] # [0,3,6,9,12,15,18] [0,5,10,15,20,25,30,35,40]
     # test_sim_score = batch_sentenceSim_test(args, SNR, StoT, SR_model, RD_model)    # sentence similarity compute
     score = batch_BLEU_test(args, SNR, StoT, SR_model, RD_model)    # BLEU score compute
     # print(score)
@@ -215,4 +215,11 @@ if __name__ == '__main__':
     #bleu1 S->D
 
     #[0.27463424 0.46264492 0.5806899  0.63233463 0.6561114  0.66920263 0.67410422] 1107 SRD
+    #[0.14433565 0.19838376 0.26330865 0.3204145  0.42538853 0.48309748 0.56946303]# 没补偿路损
+    #[0.25862494 0.50820628 0.59055231 0.66452122 0.75977189 0.70316944 0.79203189]# 没路损
+    #[0.14322584 0.20088391 0.26802963 0.3277445  0.43945113 0.50097404 0.59093764]# 把路损补偿了
+    #[0.1873226  0.4074056  0.52336228 0.59998559 0.70761992 0.67398394 0.76501392]# 1117 重新训练的补偿了路损的SRD
+    # [0.18999291 0.53242364 0.66742076 0.76303501 0.78844015 0.82353547 0.83635673 0.83863477 0.84000533] 0-40dB
+    # [0.18156312 0.39696406 0.5135011  0.5886589  0.69547914 0.66373784 0.75767886]
+    #  语义DF [0.18156312 0.39696406 0.5135011  0.5886589  0.69547914 0.66373784 0.75767886]
 

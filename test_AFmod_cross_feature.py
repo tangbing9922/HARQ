@@ -1,8 +1,7 @@
 # -*- coding:utf-8 _*-
 """
 @Author: Bing Tang
-@Time: “2022/10/31 10:22”
-多跳 语义转发 模式 的性能分析 test 文件
+@Time: “2022/12/7 20:36”
 """
 import os
 import argparse
@@ -13,21 +12,24 @@ import random
 import torch.nn as nn
 import numpy as np
 from utils import  SNR_to_noise, initNetParams, semantic_block_train_step, SeqtoText, train_mi, DENSE, greedy_decode, BleuScore
-from utils import create_masks
+from utils import create_masks, AF_get_feature
 from dataset import EurDataset, collate_data
 from Model import DeepTest
-from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1026
+from models.transceiver import Cross_Attention_layer, Encoder, Cross_Attention_DeepSC_1103
 from models.mutual_info import Mine
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from preprocess_text import tokenize
 from sentence_transformers import SentenceTransformer, util
-from train_cross1025 import greedy_decode4cross
+from train_cross1025 import greedy_decode4cross, greedy_decode4cross_feature
+from train_cross_feature import getFeature_afterChannel
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_CrossModel_AF_Rayleigh', type=str)
 parser.add_argument('--Relay_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay', type=str)
+parser.add_argument('--Direct_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Direct', type=str)
 parser.add_argument('--channel', default='Rayleigh_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
@@ -38,11 +40,13 @@ parser.add_argument('--num_heads', default=8, type=int)
 parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--epochs', default=1, type=int)
 
-def multi_jump_test(model, num_jump:int, args, SNR, StoT):
-    model.eval()
+def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, SNR_SD, StoT):
     bleu_score_1gram = BleuScore(1, 0, 0, 0)
     score = []
     score1 = []
+    model.eval()
+    SR_model.eval()
+    SD_model.eval()
     test_data = EurDataset("test")
     test_iterator = DataLoader(test_data, batch_size=args.batch_size, num_workers=0,
                                pin_memory=True, collate_fn=collate_data)
@@ -54,19 +58,30 @@ def multi_jump_test(model, num_jump:int, args, SNR, StoT):
             for snr in tqdm(SNR):
                 output_word = []
                 target_word = []
-                noise = SNR_to_noise(snr)
+                noise_std_SR = SNR_to_noise(snr)
                 for sents in test_iterator:
                     sents = sents.to(device)
                     target = sents
                     trg_inp = target[:, :-1]
                     trg_real = target[:, 1:]
                     src_mask, look_ahead_mask = create_masks(target, trg_inp, pad_idx)
-
+                    noise_std_SD = SNR_to_noise(SNR_SD)
+                    SD_channel = 'Rayleigh_Direct'
                     SR_channel = 'Rayleigh_Relay'
-                    memory = target
-                    for i in range(num_jump):
-                        out = greedy_decode(SR_model, memory, noise, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
-                        memory = out
+                    # 不用 greedy_decode 用 getFeature_afterChannel
+                    SD_Rx_sig = getFeature_afterChannel(SD_model, target, noise_std_SD, args.MAX_LENGTH, pad_idx, start_idx, SD_channel)
+
+                    num_relay = 1
+                    SRD_Rx_sig = AF_get_feature(SR_model, target, noise_std_SR, args.MAX_LENGTH, pad_idx, SR_channel, num_relay)
+
+                    # 中继链路 S->R 解码 R->D过encoder -> channel encoder -> channel -> channel decoder 之后过cross attention
+                    # 是否原始模型中就去掉 channel encoder 和 channel decoder，后续实验
+                    SD_Rx_feature = SD_model.channel_decoder(SD_Rx_sig)
+                    SRD_Rx_feature = SR_model.channel_decoder(SRD_Rx_sig)
+
+                    out = greedy_decode4cross_feature(model, target, SD_Rx_feature, SRD_Rx_feature, args.MAX_LENGTH,
+                                              pad_idx, start_idx)
+
                     sentences = out.cpu().numpy().tolist()
                     result_string = list(map(StoT.sequence_to_text, sentences))
                     output_word = output_word + result_string
@@ -86,6 +101,8 @@ def multi_jump_test(model, num_jump:int, args, SNR, StoT):
     print(score1)
     return score1
 
+
+
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
@@ -99,60 +116,29 @@ if __name__ == '__main__':
     StoT = SeqtoText(token_to_idx, start_idx, end_idx)
 
     ## 加载预训练 的 Relay model 和 Destination model
+    #1031 更新Relay mode
     pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1129DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1129DeepTest_net_checkpoint.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1207_cross_SC_net_checkpoint_AFmod.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                      args.dff, 0.1).to(device)
-
+    SD_model = DeepTest(args.num_layers, num_vocab, num_vocab,
+                     args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+                     args.dff, 0.1).to(device)
 
     SR_model.load_state_dict(pretrained_Relay_checkpoint['model'])
+    SD_model.load_state_dict(pretrained_Direct_checkpoint['model'])
 
-    sentences = ['the events taking place today in school are extremely interesting']
-    #the next item is the joint debate on the following reports
+    cross_SC = Cross_Attention_DeepSC_1103(args.num_layers, num_vocab, num_vocab,
+                        args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+                        args.dff, 0.1).to(device)
+
+    cross_SC.load_state_dict(cross_checkpoint['model'])
 
     # single_sentence_test(cross_SC, SR_model, SD_model, sentences)
-    SNR = [18]
-    # multi_jump_test(SR_model, 0, args, SNR, StoT)
-    multi_jump_test(SR_model, 1, args, SNR, StoT)
-    # #[0.67789531 0.84526688 0.88982504 0.90228607 0.9082146  0.9111156 0.91311351]
-    # #bleu4
-    # #[0.31338311 0.6252166  0.72729268 0.75794071 0.77089684 0.77631573 0.77799713]
-    multi_jump_test(SR_model, 2, args, SNR, StoT)
-    # #[0.53812144 0.79767937 0.87765943 0.89850922 0.90813592 0.90908199 0.91161545]
-    # #[0.15085767 0.52240363 0.68710042 0.73509233 0.7560983  0.76408734 0.76841077]
-    multi_jump_test(SR_model, 3, args, SNR, StoT)
-    # #[0.43855959 0.75294054 0.8612294  0.8916952  0.90392502 0.90892645 0.91121802]
-    # #[0.08129941 0.44708516 0.6535119  0.7188505  0.74393219 0.75592423 0.76184188]
-    multi_jump_test(SR_model, 4, args, SNR, StoT)
-    multi_jump_test(SR_model, 5, args, SNR, StoT)
-    multi_jump_test(SR_model, 6, args, SNR, StoT)
-    multi_jump_test(SR_model, 7, args, SNR, StoT)
-    multi_jump_test(SR_model, 8, args, SNR, StoT)
-    multi_jump_test(SR_model, 9, args, SNR, StoT)
-    multi_jump_test(SR_model, 10, args, SNR, StoT)
-    # multi_jump_test(SR_model, 11, args, SNR, StoT)
-    # multi_jump_test(SR_model, 12, args, SNR, StoT)
-    # multi_jump_test(SR_model, 13, args, SNR, StoT)
-    # multi_jump_test(SR_model, 14, args, SNR, StoT)
-    # multi_jump_test(SR_model, 15, args, SNR, StoT)
-    # multi_jump_test(SR_model, 16, args, SNR, StoT)
-    # multi_jump_test(SR_model, 17, args, SNR, StoT)
-    # multi_jump_test(SR_model, 18, args, SNR, StoT)
-    # multi_jump_test(SR_model, 19, args, SNR, StoT)
-    # multi_jump_test(SR_model, 20, args, SNR, StoT)
-    # multi_jump_test(SR_model, 21, args, SNR, StoT)
-    # multi_jump_test(SR_model, 22, args, SNR, StoT)
-    # multi_jump_test(SR_model, 23, args, SNR, StoT)
-    # multi_jump_test(SR_model, 24, args, SNR, StoT)
-    # multi_jump_test(SR_model, 25, args, SNR, StoT)
-    # multi_jump_test(SR_model, 26, args, SNR, StoT)
-    # multi_jump_test(SR_model, 27, args, SNR, StoT)
-    # multi_jump_test(SR_model, 28, args, SNR, StoT)
-    # multi_jump_test(SR_model, 29, args, SNR, StoT)
-    # multi_jump_test(SR_model, 30, args, SNR, StoT)
-
-
-
-    #[0.37088496 0.71732856 0.84698587 0.88666722 0.90045347 0.90676618 0.90989938]
-    #[0.04695291 0.39022219 0.623327   0.70397378 0.73685087 0.74980391 0.75826757]
+    SNR = [0, 3, 6, 9, 12, 15, 18]
+    SNR_SD = [0, 3, 6, 9, 12, 15, 18]
+    for SNRSD in SNR_SD:
+        batch_sentence_test_BLEU(cross_SC, SR_model, SD_model, args, SNR, SNRSD, StoT)

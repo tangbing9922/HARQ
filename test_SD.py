@@ -21,8 +21,8 @@ from Model import DeepTest
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1107DeepTest_net_checkpoint.pth', type=str)
-parser.add_argument('--channel', default='AWGN_Direct', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay/1129DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
 parser.add_argument('--d-model', default=128, type = int)
@@ -98,7 +98,7 @@ def performance(args, SNR, net):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    SNR = [0,3,6,9,12,15,18]
+    SNR = [0,3,6,9,12,15,18] # [0,5,10,15,20,25,30,35,40]
     vocab = json.load(open(args.vocab_file, 'rb'))
     token_to_idx = vocab['token_to_idx']
     idx_to_token = dict(zip(token_to_idx.values(), token_to_idx.keys()))
@@ -134,3 +134,7 @@ if __name__ == '__main__':
     #[0.3872618  0.56218327 0.66083461 0.70544055 0.72354934 0.73184637 0.73522919]1102
 
     #[0.22120379 0.2584527  0.26804157 0.26761027 0.26756117 0.26806095 0.2687165]1107
+
+    #[0.1809536  0.22372592 0.29310156 0.38846545 0.42156478 0.45491603 0.49175623]1115
+
+    #[0.19584821 0.26058715 0.33000335 0.43130254 0.4837746  0.52757035 0.56717811]1117 考虑了路损补偿 重新训练的SD模型

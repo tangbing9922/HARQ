@@ -289,7 +289,7 @@ class Channel_With_PathLoss():
     def __init__(self):
         self.device = torch.device('cuda:0')
 
-    def AWGN_Relay(self, Tx_sig, noise_std, distance = 160):#更改
+    def AWGN_Relay(self, Tx_sig, noise_std, distance = 120):#更改
         shape = Tx_sig.shape
         # dim = Tx_sig.shape[0] + Tx_sig.shape[1] + Tx_sig.shape[2]
         # spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
@@ -298,10 +298,11 @@ class Channel_With_PathLoss():
         PL = (distance / d_ref) ** path_loss_exp
         Tx_sig = (Tx_sig * PL)
         Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
-        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
+        Rx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
         # 噪声功率/根号2 因为 是复数
-        Tx_sig = Tx_sig.view(shape)
-        return Tx_sig
+        Rx_sig = Rx_sig / PL
+        Rx_sig = Rx_sig.view(shape)
+        return Rx_sig
 
     def AWGN_Direct(self, Tx_sig, noise_std, distance = 160):
         shape = Tx_sig.shape
@@ -313,38 +314,46 @@ class Channel_With_PathLoss():
         Tx_sig = Tx_sig * PL
         # std_no = ((10 ** (- SNR / 10.) / 2) ** 0.5).to(self.device) #新增.to(self.device)
         Tx_sig = Tx_sig.view(Tx_sig.shape[0], -1, 2)
-        Tx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
-        Tx_sig = Tx_sig.view(shape)
-        return Tx_sig
+        Rx_sig = Tx_sig + torch.normal(0., noise_std, size=Tx_sig.shape).to(self.device)
+        Rx_sig = Rx_sig / PL
+        Rx_sig = Rx_sig.view(shape)
+        return Rx_sig
 
-    def Rayleigh_Relay(self, Tx_sig, SNR, distance = 120):
+    def Rayleigh_Relay(self, Tx_sig, noise_std, distance = 120):
         shape = Tx_sig.shape
-        dim = Tx_sig.shape[0] * Tx_sig.shape[1] * Tx_sig.shape[2]
-        spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
         path_loss_exp = -2
         d_ref  = 100
         PL = (distance / d_ref) ** path_loss_exp
-        coe = ((torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2 + torch.normal(0, PL**0.5, (Tx_sig.shape[0],1)) ** 2) ** 0.5) / (2 ** 0.5)
-        std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
-        Tx_sig = Tx_sig * coe.view(-1, 1, 1).to(self.device)
-        Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
-        Tx_sig = Tx_sig.view(shape).to(self.device)
-        return Tx_sig
+        H_real = torch.normal(0, math.sqrt(1/2), size=[1]).to(device)
+        H_imag = torch.normal(0, math.sqrt(1/2), size=[1]).to(device)
+        # H = torch.Tensor([H_real, H_imag]).to(device)
+        H = torch.Tensor([[H_real, -H_imag], [H_imag, H_real]]).cuda()
+        H = H * PL
+        # H_inverse = torch.Tensor([1/H_real, 1/H_imag]).to(device)
+        Tx_sig_H = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        Tx_sig_H = torch.matmul(Tx_sig_H, H)
+        Rx_sig = Tx_sig_H + torch.normal(0., noise_std, size=Tx_sig_H.shape).to(self.device)
+        # Channel 接收端 假设已知完美的CSI H
+        Rx_sig = torch.matmul(Rx_sig, torch.inverse(H)).view(shape)
+        return Rx_sig
 
-    def Rayleigh_Direct(self, Tx_sig, SNR, distance = 1000):
-        if distance == 1000:#或者范围
-            path_loss_exp = -3
+    def Rayleigh_Direct(self, Tx_sig, noise_std, distance = 160):
         shape = Tx_sig.shape
-        dim = Tx_sig.shape[0] * Tx_sig.shape[1] * Tx_sig.shape[2]
-        spow = torch.sqrt(torch.sum(Tx_sig ** 2)) / (dim ** 0.5)
-        d_ref = 10
+        path_loss_exp = -2.2
+        d_ref  = 100
         PL = (distance / d_ref) ** path_loss_exp
-        coe =  ((torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2 + torch.normal(0, PL**0.5, (Tx_sig.shape[0],1))**2) ** 0.5) / (2 ** 0.5)
-        std_no = (10 ** (- SNR / 10.) / 2) ** 0.5
-        Tx_sig = Tx_sig * coe.view(-1, 1, 1)
-        Tx_sig = Tx_sig + torch.randn_like(Tx_sig) * std_no * spow
-        Tx_sig = Tx_sig.view(shape).to(self.device)
-        return Tx_sig
+        H_real = torch.normal(0, math.sqrt(1/2), size=[1]).to(device)
+        H_imag = torch.normal(0, math.sqrt(1/2), size=[1]).to(device)
+        # H = torch.Tensor([H_real, H_imag]).to(device)
+        H = torch.Tensor([[H_real, -H_imag], [H_imag, H_real]]).cuda()
+        # H_inverse = torch.Tensor([1/H_real, 1/H_imag]).to(device)
+        Tx_sig_H = Tx_sig.view(Tx_sig.shape[0], -1, 2)
+        H = H * PL
+        Tx_sig_H = torch.matmul(Tx_sig_H, H)
+        Rx_sig = Tx_sig_H + torch.normal(0., noise_std, size=Tx_sig_H.shape).to(self.device)
+        # Channel 接收端 假设已知完美的CSI H
+        Rx_sig = torch.matmul(Rx_sig, torch.inverse(H)).view(shape)
+        return Rx_sig
 
 class Channel_with_diff_dis():
     def __init__(self):
@@ -439,18 +448,31 @@ def loss_function(x, trg, padding_idx, criterion):
 def PowerNormalize(x):
     
     x_square = torch.mul(x, x)  # 各点信号能量的计算(数字信号中信号的能量即各点信号幅值平方后求和)
-    power = torch.mean(x_square).sqrt()
+    power = torch.mean(x_square)
     # torch.mean(x) 返回x所有元素的平方的均值
     # 平均信号能量是指E(xi ** 2 ) <= 1
     # power 即 为E(xi ** 2 )， 现在要约束这个值≤1，即只需要每个xi除以根号power即可
     # power = math.sqrt(2) * torch.mean(x_square).sqrt()
     # 如果是SRD是不是就需要乘根号2
-    if power > 1:
-        x = torch.div(x, power)
-        # 1109更改 平均功率
-        # x = x * 5
+    x = torch.div(x, power.sqrt())
+    x_power = torch.mean(torch.mul(x, x))
+    # x = x * 5
     
-    return x
+    return x, power
+
+
+def PowerNormalize_control(x, control_factor):
+    x_square = torch.mul(x, x)  # 各点信号能量的计算(数字信号中信号的能量即各点信号幅值平方后求和)
+    power = torch.mean(x_square)
+    # torch.mean(x) 返回x所有元素的平方的均值
+    # 平均信号能量是指E(xi ** 2 ) <= 1
+    # power 即 为E(xi ** 2 )， 现在要约束这个值≤1，即只需要每个xi除以根号power即可
+    # power = math.sqrt(2) * torch.mean(x_square).sqrt()
+    # 如果是SRD是不是就需要乘根号2
+    x = torch.div(x, power.sqrt())
+    x_norm = x * math.sqrt(control_factor)
+    x_norm_power = torch.mean(torch.mul(x_norm, x_norm))
+    return x_norm
 
 def Control_PowerNormalize(x, snr):
 
@@ -556,20 +578,30 @@ def semantic_block_train_step(model, src, trg, noise_std, pad, opt, criterion, c
     model.train()
     trg_inp = trg[:, :-1]
     trg_real = trg[:, 1:]
-    # channels = Channel_With_PathLoss_cuda1()
     channels = Channel_With_PathLoss()
+    #1115 测试不加路损的情况
+    # channels = Channels("cuda:0")
     opt.zero_grad()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
     enc_output = model.encoder(src, src_mask)
     channel_enc_output = model.channel_encoder(enc_output)
-    Tx_sig = PowerNormalize(channel_enc_output)
+    # Tx_sig = PowerNormalize(channel_enc_output)     #1206
+    Tx_sig = PowerNormalize_control(channel_enc_output, 0.5)
 
     if channel == 'AWGN_Relay':
         Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+    elif channel == 'AWGN':
+        Rx_sig = channels.AWGN(Tx_sig, noise_std)
+    elif channel == 'Rayleigh':
+        Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
     elif channel == 'AWGN_Direct':
         Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
     else:
         raise ValueError("Please choose from Relay, Direct")
 
@@ -761,18 +793,27 @@ def train_mi(model, mi_net, src, noise_std, padding_idx, opt, channel):
     opt.zero_grad()#
     # channels = Channel_With_PathLoss_cuda1()
     channels = Channel_With_PathLoss()
+    # channels = Channels(device)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)  # [batch, 1, seq_len]
     #0724
     enc_output = model.encoder(src, src_mask)   #   enc_output : 128 * 32 * 128 batch_size * max_len * d_model
     channel_enc_output = model.channel_encoder(enc_output)  #channel_enc_output: 128 * 32 * 16
-    Tx_sig = PowerNormalize(channel_enc_output) # 功率归一化
+    Tx_sig, _ = PowerNormalize(channel_enc_output) # 功率归一化
     if channel == 'AWGN_Relay':
         Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+    elif channel == 'AWGN':
+        Rx_sig = channels.AWGN(Tx_sig, noise_std)
+    elif channel == 'Rayleigh':
+        Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
     elif channel == 'AWGN_Direct':
         Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
     elif channel == 'Rician':
         Rx_sig = channels.Rician(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
     else:
         raise ValueError("Please choose from AWGN, Rayleigh, and Rician")
     joint, marginal = sample_batch(Tx_sig, Rx_sig)
@@ -815,17 +856,21 @@ def ControlPower_train_mi(model, mi_net, src, noise_std, padding_idx, opt, chann
     return loss_mine.item()
 
 #12.22 validate还没改
-def val_step(model, Q_Net, src, trg, n_var,pad, criterion, channel, start_symbol):
-    model.eval()
-    channels = Channels()
-    trg_inp = trg[:, :-1]#取 除了最后一列的所有值
-    trg_real = trg[:, 1:]#取 除了第一列的所有值
+def val_step(model, src, trg, n_var, pad, criterion, channel, dequant_after_channel = False):
+    channels = Channel_With_PathLoss()
+    trg_inp = trg[:, :-1]
+    trg_real = trg[:, 1:]
 
     src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
 
     enc_output = model.encoder(src, src_mask)
     channel_enc_output = model.channel_encoder(enc_output)
-    Tx_sig = PowerNormalize(channel_enc_output)
+
+    # channel_enc_output, Listmat, scale, zero_point, min_val, max_val = model.quant_constellation(channel_enc_output)
+    channel_enc_output, _ = model.quant_constellation(channel_enc_output)
+    # chennel_enc_output, _ = model.vector_quantization(channel_enc_output)
+
+    Tx_sig, power = PowerNormalize(channel_enc_output)
 
     if channel == 'AWGN':
         Rx_sig = channels.AWGN(Tx_sig, n_var)
@@ -833,56 +878,124 @@ def val_step(model, Q_Net, src, trg, n_var,pad, criterion, channel, start_symbol
         Rx_sig = channels.Rayleigh(Tx_sig, n_var)
     elif channel == 'Rician':
         Rx_sig = channels.Rician(Tx_sig, n_var)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, n_var)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, n_var)
     else:
         raise ValueError("Please choose from AWGN, Rayleigh, and Rician")
 
+    Rx_sig = Rx_sig.view(Rx_sig.shape[0], -1, 16)
+
+    if dequant_after_channel == True:
+        Rx_sig = torch.mul(Rx_sig, power)  # dot production 1020 add
+        Rx_sig = torch.clamp(Rx_sig, min_val, max_val)
+        Rx_sig = Rx_sig * scale - zero_point  # 1019 commit
+
     channel_dec_output = model.channel_decoder(Rx_sig)
     dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
-    pred = model.predict(dec_output)
+    pred = model.dense(dec_output)
 
     # pred = model(src, trg_inp, src_mask, look_ahead_mask, n_var)
     ntokens = pred.size(-1)
-    loss = loss_function(pred.contiguous().view(-1, ntokens), 
-                         trg_real.contiguous().view(-1), 
+    loss = loss_function(pred.contiguous().view(-1, ntokens),
+                         trg_real.contiguous().view(-1),
                          pad, criterion)
     # loss = loss_function(pred, trg_real, pad)
-    #验证集要不要看cos_loss 感觉无所谓
-    
+
     return loss.item()
-    
+
+def Quant_train_step(model, src, trg, n_var, pad, opt, criterion, channel, mi_net=None, dequant_after_channel = False):
+    model.train()
+
+    trg_inp = trg[:, :-1]
+    trg_real = trg[:, 1:]
+
+    channels = Channel_With_PathLoss()
+    opt.zero_grad()
+
+    src_mask, look_ahead_mask = create_masks(src, trg_inp, pad)
+
+    enc_output = model.encoder(src, src_mask)
+    channel_enc_output = model.channel_encoder(enc_output)
+
+    # 在这里加量化模块
+    # channel_enc_output, _, scale, zero_point, min_val, max_val = model.quant_constellation(channel_enc_output)
+    channel_enc_output, _ = model.quant_constellation(channel_enc_output)
+    # chennel_enc_output, _ = model.vector_quantization(channel_enc_output)
+
+    Tx_sig, power = PowerNormalize(channel_enc_output)
+
+    if channel == 'AWGN':
+        Rx_sig = channels.AWGN(Tx_sig, n_var)
+    elif channel == 'Rayleigh':
+        Rx_sig = channels.Rayleigh(Tx_sig, n_var)
+    elif channel == 'Rician':
+        Rx_sig = channels.Rician(Tx_sig, n_var)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, n_var)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, n_var)
+    else:
+        raise ValueError("Please choose from AWGN, Rayleigh, and Rician")
+
+    if dequant_after_channel == True:
+        Rx_sig = torch.mul(Rx_sig, power)  # dot production 1020 add
+        Rx_sig = torch.clamp(Rx_sig, min_val, max_val)
+        Rx_sig = Rx_sig * scale - zero_point  # 1019 commit
+
+    channel_dec_output = model.channel_decoder(Rx_sig)
+    dec_output = model.decoder(trg_inp, channel_dec_output, look_ahead_mask, src_mask)
+    pred = model.dense(dec_output)
+    ntokens = pred.size(-1)
+
+    loss = loss_function(pred.contiguous().view(-1, ntokens),
+                         trg_real.contiguous().view(-1),
+                         pad, criterion)
+
+    if mi_net is not None:
+        mi_net.eval()
+        joint, marginal = sample_batch(Tx_sig, Rx_sig)
+        mi_lb, _, _ = mutual_information(joint, marginal, mi_net)
+        loss_mine = -mi_lb
+        loss = loss + 0.001 * loss_mine
+
+    loss.backward()
+    opt.step()
+
+    return loss.item()
+
 def greedy_decode(model, src, noise_std, max_len, padding_idx, start_symbol, channel, Q_Net = None):  # greedy中也加入量化模块
     """ 
     这里采用贪婪解码器，如果需要更好的性能情况下，可以使用beam search decode
     """
     # create src_mask
     channels = Channel_With_PathLoss()
+    # channels = Channels(device)
     src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
 
     enc_output = model.encoder(src, src_mask)
     channel_enc_output = model.channel_encoder(enc_output)
-    Tx_sig = PowerNormalize(channel_enc_output)
-    if Q_Net != None:
-        Tx_sig = Q_Net.Q(Tx_sig)
-        if channel == 'AWGN_Relay':
-            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
-        elif channel == 'AWGN_Direct':
-            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
-        else:
-            raise ValueError("Please choose from AWGN, Rayleigh")
-        Rx_sig = sign(Rx_sig)
-        Rx_sig = Q_Net.dQ(Rx_sig)
+    Tx_sig, _ = PowerNormalize(channel_enc_output)
+
+    if channel == 'AWGN_Relay':
+        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+    elif channel == 'AWGN':
+        Rx_sig = channels.AWGN(Tx_sig, noise_std)
+    elif channel == 'Rayleigh':
+        Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
+    elif channel == 'AWGN_Direct':
+        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
     else:
-        if channel == 'AWGN_Relay':
-            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
-        elif channel == 'AWGN_Direct':
-            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
-        else:
-            raise ValueError("Please choose from AWGN, Rayleigh")
+        raise ValueError("Please choose from AWGN, Rayleigh")
     memory = model.channel_decoder(Rx_sig)
     
     outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)
-    # torch.tensor.fill_(x)用指定的值x填充张量
-    # torch.tensor.type_as(type) 将tensor的类型转换为给定张量的类型
+
     for i in range(max_len - 1):
         trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
         look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
@@ -891,8 +1004,8 @@ def greedy_decode(model, src, noise_std, max_len, padding_idx, start_symbol, cha
 
         # decode the received signal
         dec_output = model.decoder(outputs, memory, combined_mask, None)
+        # pred = model.dense(dec_output)
         pred = model.predict(dec_output)
-        
         # predict the output_sentences
         prob = pred[: ,-1:, :]  # (batch_size, 1, vocab_size)
         #prob = prob.squeeze()
@@ -1047,3 +1160,148 @@ def upperbound_greedy_decode(model, src, noise_std, max_len, padding_idx, start_
         outputs = torch.cat([outputs, next_word], dim=1)
 
     return outputs
+
+
+def Quant_greedy_decode(model, src, noise_std, max_len, padding_idx, start_symbol, channel, Q_Net=None):  # greedy中也加入量化模块
+    """
+    这里采用贪婪解码器，如果需要更好的性能情况下，可以使用beam search decode
+    """
+    # create src_mask
+    channels = Channel_With_PathLoss()
+    # channels = Channels(device)
+    src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
+
+    enc_output = model.encoder(src, src_mask)
+    channel_enc_output = model.channel_encoder(enc_output)
+
+    channel_enc_output, _ = model.quant_constellation(channel_enc_output)
+
+    Tx_sig, _ = PowerNormalize(channel_enc_output)
+
+    if channel == 'AWGN_Relay':
+        Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+    elif channel == 'AWGN':
+        Rx_sig = channels.AWGN(Tx_sig, noise_std)
+    elif channel == 'Rayleigh':
+        Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
+    elif channel == 'AWGN_Direct':
+        Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Relay':
+        Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+    elif channel == 'Rayleigh_Direct':
+        Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
+    else:
+        raise ValueError("Please choose from AWGN, Rayleigh")
+    memory = model.channel_decoder(Rx_sig)
+
+    outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)
+
+    for i in range(max_len - 1):
+        trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
+        look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
+        combined_mask = torch.max(trg_mask, look_ahead_mask)
+        combined_mask = combined_mask.to(device)
+
+        # decode the received signal
+        dec_output = model.decoder(outputs, memory, combined_mask, None)
+
+        pred = model.dense(dec_output)
+        # predict the output_sentences
+        prob = pred[:, -1:, :]  # (batch_size, 1, vocab_size)
+
+
+        # return the max-prob index
+        _, next_word = torch.max(prob, dim=-1)
+        # next_word = next_word.unsqueeze(1)
+
+        # next_word = next_word.data[0]
+        outputs = torch.cat([outputs, next_word], dim=1)
+
+    return outputs
+
+
+def AF_greedy_decode(model, src, noise_std, max_len, padding_idx, start_symbol, channel, num_Relay):  # greedy中也加入量化模块
+    """
+    这里采用贪婪解码器，如果需要更好的性能情况下，可以使用beam search decode
+    """
+    # create src_mask
+    channels = Channel_With_PathLoss()
+    # channels = Channels(device)
+    src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
+
+    enc_output = model.encoder(src, src_mask)
+    channel_enc_output = model.channel_encoder(enc_output)
+    Tx_sig, _ = PowerNormalize(channel_enc_output)
+    for i in range(num_Relay+1):
+        if channel == 'AWGN_Relay':
+            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+        elif channel == 'AWGN':
+            Rx_sig = channels.AWGN(Tx_sig, noise_std)
+        elif channel == 'Rayleigh':
+            Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
+        elif channel == 'AWGN_Direct':
+            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+        elif channel == 'Rayleigh_Relay':
+            Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+        elif channel == 'Rayleigh_Direct':
+            Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
+        else:
+            raise ValueError("Please choose from AWGN, Rayleigh")
+
+
+    memory = model.channel_decoder(Rx_sig)
+
+    outputs = torch.ones(src.size(0), 1).fill_(start_symbol).type_as(src.data)
+
+    for i in range(max_len - 1):
+        trg_mask = (outputs == padding_idx).unsqueeze(-2).type(torch.FloatTensor)  # [batch, 1, seq_len]
+        look_ahead_mask = subsequent_mask(outputs.size(1)).type(torch.FloatTensor)
+        combined_mask = torch.max(trg_mask, look_ahead_mask)
+        combined_mask = combined_mask.to(device)
+
+        # decode the received signal
+        dec_output = model.decoder(outputs, memory, combined_mask, None)
+        # pred = model.dense(dec_output)
+        pred = model.predict(dec_output)
+        # predict the output_sentences
+        prob = pred[:, -1:, :]  # (batch_size, 1, vocab_size)
+        # prob = prob.squeeze()
+
+        # return the max-prob index
+        _, next_word = torch.max(prob, dim=-1)
+        # next_word = next_word.unsqueeze(1)
+
+        # next_word = next_word.data[0]
+        outputs = torch.cat([outputs, next_word], dim=1)
+
+    return outputs
+
+def AF_get_feature(model, src, noise_std, max_len, padding_idx, channel, num_Relay):  # greedy中也加入量化模块
+    """
+    这里采用贪婪解码器，如果需要更好的性能情况下，可以使用beam search decode
+    """
+    # create src_mask
+    channels = Channel_With_PathLoss()
+    # channels = Channels(device)
+    src_mask = (src == padding_idx).unsqueeze(-2).type(torch.FloatTensor).to(device)
+
+    enc_output = model.encoder(src, src_mask)
+    channel_enc_output = model.channel_encoder(enc_output)
+    Tx_sig, _ = PowerNormalize(channel_enc_output)
+    for i in range(num_Relay+1):
+        if channel == 'AWGN_Relay':
+            Rx_sig = channels.AWGN_Relay(Tx_sig, noise_std)
+        elif channel == 'AWGN':
+            Rx_sig = channels.AWGN(Tx_sig, noise_std)
+        elif channel == 'Rayleigh':
+            Rx_sig = channels.Rayleigh(Tx_sig, noise_std)
+        elif channel == 'AWGN_Direct':
+            Rx_sig = channels.AWGN_Direct(Tx_sig, noise_std)
+        elif channel == 'Rayleigh_Relay':
+            Rx_sig = channels.Rayleigh_Relay(Tx_sig, noise_std)
+        elif channel == 'Rayleigh_Direct':
+            Rx_sig = channels.Rayleigh_Direct(Tx_sig, noise_std)
+        else:
+            raise ValueError("Please choose from AWGN, Rayleigh")
+
+    return Rx_sig

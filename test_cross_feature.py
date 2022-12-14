@@ -27,10 +27,10 @@ from train_cross_feature import getFeature_afterChannel
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_CrossModel', type=str)
-parser.add_argument('--Relay_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Relay', type=str)
-parser.add_argument('--Direct_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Direct', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_CrossModel_Rayleigh', type=str)
+parser.add_argument('--Relay_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay', type=str)
+parser.add_argument('--Direct_checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Direct', type=str)
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
@@ -67,8 +67,8 @@ def single_sentence_test(model, relay_model, direct_model, sentences):
             trg_real = target[:, 1:]
             src_mask, look_ahead_mask = create_masks(target, trg_inp, pad_idx)
 
-            SD_channel = 'AWGN_Direct'
-            SR_channel = 'AWGN_Relay'
+            SD_channel = 'Rayleigh_Direct'
+            SR_channel = 'Rayleigh_Relay'
             SD_output = greedy_decode(direct_model, target, noise_std_SD, args.MAX_LENGTH, pad_idx, start_idx, SD_channel)
             SR_output = greedy_decode(relay_model, target, noise_std_SR, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
             RD_output = greedy_decode(relay_model, SR_output, noise_std_SR, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
@@ -112,8 +112,8 @@ def batch_sentence_test_BLEU(model, SR_model, SD_model, args, SNR, SNR_SD, StoT)
                     trg_real = target[:, 1:]
                     src_mask, look_ahead_mask = create_masks(target, trg_inp, pad_idx)
                     noise_std_SD = SNR_to_noise(SNR_SD)
-                    SD_channel = 'AWGN_Direct'
-                    SR_channel = 'AWGN_Relay'
+                    SD_channel = 'Rayleigh_Direct'
+                    SR_channel = 'Rayleigh_Relay'
                     # 不用 greedy_decode 用 getFeature_afterChannel
                     SD_Rx_sig = getFeature_afterChannel(SD_model, target, noise_std_SD, args.MAX_LENGTH, pad_idx, start_idx, SD_channel)
                     SR_output = greedy_decode(SR_model, target, noise_std_SR, args.MAX_LENGTH, pad_idx, start_idx, SR_channel)
@@ -163,9 +163,9 @@ if __name__ == '__main__':
 
     ## 加载预训练 的 Relay model 和 Destination model
     #1031 更新Relay mode
-    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1101DeepTest_net_checkpoint.pth')
-    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1107DeepTest_net_checkpoint.pth')
-    cross_checkpoint = torch.load(args.checkpoint_path + '/1108_cross_SC_net_checkpoint_SDrand.pth')
+    pretrained_Relay_checkpoint = torch.load(args.Relay_checkpoint_path + '/1129DeepTest_net_checkpoint.pth')
+    pretrained_Direct_checkpoint = torch.load(args.Direct_checkpoint_path + '/1129DeepTest_net_checkpoint.pth')
+    cross_checkpoint = torch.load(args.checkpoint_path + '/1130_cross_SC_net_checkpoint_SDrand.pth')
 
     SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,

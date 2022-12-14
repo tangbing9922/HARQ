@@ -23,16 +23,16 @@ from matplotlib.pyplot import MultipleLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Relay', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--checkpoint_path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay', type=str)
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str, help = 'Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
 parser.add_argument('--dff', default=512, type=int)
 parser.add_argument('--num_layers', default=3, type=int)
 parser.add_argument('--num_heads', default=8, type=int)
-parser.add_argument('--batch_size', default=512, type=int)
-parser.add_argument('--epochs', default=200, type=int)
+parser.add_argument('--batch_size', default=128, type=int)
+parser.add_argument('--epochs', default=300, type=int)
 
 sentence_model = SentenceTransformer('models/sentence_model/training_stsbenchmark_continue_training-all-MiniLM-L6-v2-2021-11-25_20-55-16')
 
@@ -60,6 +60,7 @@ def train(epoch, args, net1, mi_net=None):
         if mi_net is not None:
             # mi = train_mi(net, mi_net, sents, noise_std[0], pad_idx, mi_opt, args.channel)
             noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(18), size=(1))
+            # noise_std = np.random.uniform(SNR_to_noise(0), SNR_to_noise(30), size=(1))
             noise_std = noise_std.astype(np.float64)[0]
             mi = train_mi(net1, mi_net, sents, noise_std, pad_idx, mi_opt, args.channel)
             loss, los_cos = semantic_block_train_step(net1, sents, sents, noise_std, pad_idx, optimizer, criterion, args.channel, start_idx,
@@ -94,7 +95,7 @@ def train(epoch, args, net1, mi_net=None):
 
 if __name__ == '__main__':
     setup_seed(7)
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     """ preparing the dataset """
     vocab = json.load(open(args.vocab_file, 'rb'))
@@ -138,6 +139,8 @@ if __name__ == '__main__':
                     'model': deepTest.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'epoch': epoch,
-                }, args.checkpoint_path + '/1031DeepTest_net_checkpoint.pth')
+                }, args.checkpoint_path + '/1214DeepTest_net_checkpoint_Power0.5.pth')
             std_acc = total_loss
             #1031DeepTest_net_checkpoint.pth 0-18db，之前的是4-10db
+            # 1116 补偿了路损的AWGN_relay
+            # 1206 lowSNR 6-10dB highSNR 15-18dB

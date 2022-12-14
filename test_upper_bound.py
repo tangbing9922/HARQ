@@ -19,8 +19,8 @@ from Model import DeepTest
 parser = argparse.ArgumentParser()
 parser.add_argument('--data-dir', default='europarl/train_data32.pkl', type=str)
 parser.add_argument('--vocab-file', default='europarl/vocab32.json', type=str)
-parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Direct/1107DeepTest_net_checkpoint.pth', type=str)
-parser.add_argument('--channel', default='AWGN_Direct', type=str)
+parser.add_argument('--checkpoint-path', default='./checkpoints/Train_SemanticBlock_Rayleigh_Relay/1120DeepTest_net_checkpoint.pth', type=str)
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str)
 parser.add_argument('--MAX-LENGTH', default=32, type=int)
 parser.add_argument('--MIN-LENGTH', default=4, type=int)
 parser.add_argument('--d-model', default=128, type = int)
@@ -138,7 +138,7 @@ def SRD_upper_performance(args, SNR, StoT, SR_model, RD_model):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    SNR = [0,3,6,9,12,15,18]
+    SNR = [0,5,10,15,20,25,30,35,40]
     vocab = json.load(open(args.vocab_file, 'rb'))
     token_to_idx = vocab['token_to_idx']
     idx_to_token = dict(zip(token_to_idx.values(), token_to_idx.keys()))
@@ -153,32 +153,23 @@ if __name__ == '__main__':
                      args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
                      args.dff, 0.1).to(device)
 
-    # model_paths = []
-    # for fn in os.listdir(args.checkpoint_path):
-    #     if not fn.endswith('.pth'): continue
-    #     idx = int(os.path.splitext(fn)[0].split('_')[-1])  # read the idx of image
-    #     model_paths.append((os.path.join(args.checkpoint_path, fn), idx))
-    #
-    # model_paths.sort(key=lambda x: x[1])  # sort the image by the idx
-    #
-    # model_path, _ = model_paths[-1]
     model_path = args.checkpoint_path
     checkpoint = torch.load(model_path)
     deepsc_direct.load_state_dict(checkpoint['model'])
     print('model load!')
 
-    SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
-                        args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
-                        args.dff, 0.1).to(device)
-    SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
-    SR_model.load_state_dict(SR_checkpoint['model'])
+    # SR_model = DeepTest(args.num_layers, num_vocab, num_vocab,
+    #                     args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+    #                     args.dff, 0.1).to(device)
+    # SR_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
+    # SR_model.load_state_dict(SR_checkpoint['model'])
+    #
+    # #加载RD_model
+    # RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
+    #                     args.dff, 0.1).to(device)
+    # RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
+    # RD_model.load_state_dict(RD_checkpoint['model'])
 
-    #加载RD_model
-    RD_model = DeepTest(args.num_layers, num_vocab, num_vocab, args.MAX_LENGTH, args.MAX_LENGTH, args.d_model, args.num_heads,
-                        args.dff, 0.1).to(device)
-    RD_checkpoint = torch.load('./checkpoints/Train_SemanticBlock_Relay/1101DeepTest_net_checkpoint.pth')
-    RD_model.load_state_dict(RD_checkpoint['model'])
-
-    # bleu_score = SD_upper_performance(args, SNR, deepsc_direct)
-    score = SRD_upper_performance(args, SNR, StoT, SR_model, RD_model)
-    # print(bleu_score)
+    bleu_score = SD_upper_performance(args, SNR, deepsc_direct)
+    # score = SRD_upper_performance(args, SNR, StoT, SR_model, RD_model)
+    print(bleu_score)

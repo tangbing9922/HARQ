@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--vocab_file', default='./europarl/vocab32.json', type=str)
 parser.add_argument('--checkpoint_path', default='./checkpoints', type=str)
-parser.add_argument('--channel', default='AWGN_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
+parser.add_argument('--channel', default='Rayleigh_Relay', type=str, help='Please choose AWGN, Rayleigh, and Rician')
 parser.add_argument('--MAX_LENGTH', default=32, type=int)
 parser.add_argument('--MIN_LENGTH', default=4, type=int)
 parser.add_argument('--d_model', default=128, type=int)
